@@ -1,0 +1,15 @@
+# Cloudflare Pages Configuration
+# Deploy with: npx wrangler pages deploy frontend/dist
+
+name = "nutriflow"
+compatibility_date = "2026-06-23"
+
+[build]
+command = "cd frontend && npm install && npm run build"
+
+[build.upload]
+format = "directory"
+dir = "frontend/dist"
+
+# Environment variables (set in Cloudflare Dashboard → Pages → Settings → Environment Variables)
+# VITE_API_URL = https://your-render-backend.onrender.com

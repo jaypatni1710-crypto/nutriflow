@@ -1,0 +1,263 @@
+import { useEffect, useState } from 'react';
+import { clientApi } from '../../lib/client.api';
+import { ClientFoodFrequency, ClientProgressPhoto, ClientTimelineEvent } from '../../types/client.types';
+import { FOOD_FREQUENCY_OPTIONS, FOOD_FREQUENCY_ITEMS, STATUS_OPTIONS, STATUS_LABELS, PHOTO_VIEW_TYPES } from '../../lib/clientOptions';
+import { Select } from './FormFields';
+
+const STATUS_COLORS: Record<string, string> = {
+  active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
+  inactive: 'bg-slate-100 text-slate-600 dark:bg-slate-500/10 dark:text-slate-400',
+  completed: 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-400',
+  on_hold: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400',
+};
+
+export function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[status] || STATUS_COLORS.active}`}>
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
+
+export function StatusSelector({ status, onChange }: { status: string; onChange: (s: string) => void }) {
+  return (
+    <select
+      value={status}
+      onChange={(e) => onChange(e.target.value)}
+      className="px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+    >
+      {STATUS_OPTIONS.map((s) => (
+        <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+      ))}
+    </select>
+  );
+}
+
+// Feature 4: Goal Progress Bar
+export function GoalProgressBar({ start, current, goal }: { start: number | null; current: number | null; goal: number | null }) {
+  if (!current || !goal) return <p className="text-sm text-slate-400">Set current weight and goal weight to track progress.</p>;
+  const base = start ?? current;
+  let pct = 0;
+  if (base !== goal) pct = Math.max(0, Math.min(100, Math.round(((base - current) / (base - goal)) * 100)));
+  const remaining = Math.abs(current - goal);
+  return (
+    <div>
+      <div className="flex justify-between text-sm mb-1.5">
+        <span className="font-semibold text-slate-900 dark:text-white">{pct}% Complete</span>
+        <span className="text-slate-500 dark:text-slate-400">{remaining.toFixed(1)} kg remaining</span>
+      </div>
+      <div className="w-full h-2.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+        <div className="h-full bg-teal-600 rounded-full transition-all" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// Feature 1: Food Frequency Questionnaire
+export function FoodFrequencySection({ clientId, history, onSaved }: { clientId: string; history: ClientFoodFrequency[]; onSaved: () => void }) {
+  const latest = history[0];
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = () => {
+    const init: Record<string, string> = {};
+    FOOD_FREQUENCY_ITEMS.forEach(({ key }) => { init[key] = (latest as any)?.[key] || ''; });
+    setForm(init);
+    setEditing(true);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await clientApi.addFoodFrequency(clientId, form);
+      setEditing(false);
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white">Food Frequency Questionnaire</h4>
+        {!editing && (
+          <button onClick={startEdit} className="text-teal-600 hover:text-teal-700 font-medium text-xs">
+            {latest ? 'Update' : 'Add'}
+          </button>
+        )}
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {FOOD_FREQUENCY_ITEMS.map(({ key, label }) => (
+              <div key={key}>
+                <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">{label}</label>
+                <Select options={FOOD_FREQUENCY_OPTIONS} value={form[key] || ''} onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))} />
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-1">
+            <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+            <button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
+          </div>
+        </div>
+      ) : !latest ? (
+        <p className="text-sm text-slate-400">No food frequency data recorded yet.</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-y-1.5 gap-x-4 text-sm mb-3">
+            {FOOD_FREQUENCY_ITEMS.map(({ key, label }) => (
+              <div key={key} className="flex justify-between border-b border-slate-100 dark:border-slate-800 py-1">
+                <span className="text-slate-500 dark:text-slate-400">{label}</span>
+                <span className="text-slate-900 dark:text-white font-medium">{(latest as any)[key] || '—'}</span>
+              </div>
+            ))}
+          </div>
+          {history.length > 1 && (
+            <p className="text-xs text-slate-400">{history.length} historical entries · Latest recorded {new Date(latest.created_at).toLocaleDateString()}</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Feature 2: Progress Photos
+function PhotoThumb({ clientId, photo, onDelete }: { clientId: string; photo: ClientProgressPhoto; onDelete: () => void }) {
+  const [url, setUrl] = useState('');
+  const [fullScreen, setFullScreen] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    clientApi.getProgressPhotoBlobUrl(clientId, photo.id).then((u) => { if (active) setUrl(u); }).catch(() => {});
+    return () => { active = false; };
+  }, [clientId, photo.id]);
+
+  return (
+    <>
+      <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
+        {url ? (
+          <img src={url} alt={photo.view_type} onClick={() => setFullScreen(true)} className="w-full h-40 object-cover cursor-pointer" />
+        ) : (
+          <div className="w-full h-40 flex items-center justify-center text-slate-400 text-xs">Loading...</div>
+        )}
+        <div className="p-2 text-xs">
+          <span className="font-semibold text-slate-900 dark:text-white">{photo.view_type} View</span>
+          <span className="block text-slate-400">{new Date(photo.uploaded_at).toLocaleDateString()}</span>
+        </div>
+        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={() => clientApi.downloadProgressPhoto(clientId, photo.id, photo.original_filename)} className="px-2 py-1 text-[10px] font-semibold rounded bg-white/90 text-slate-700 hover:bg-white">DL</button>
+          <button onClick={onDelete} className="px-2 py-1 text-[10px] font-semibold rounded bg-red-500/90 text-white hover:bg-red-600">Del</button>
+        </div>
+      </div>
+      {fullScreen && url && (
+        <div onClick={() => setFullScreen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out">
+          <img src={url} alt={photo.view_type} className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
+    </>
+  );
+}
+
+export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientId: string; photos: ClientProgressPhoto[]; onChanged: () => void }) {
+  const [viewType, setViewType] = useState(PHOTO_VIEW_TYPES[0]);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const upload = async () => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      await clientApi.uploadProgressPhoto(clientId, viewType, file);
+      setFile(null);
+      onChanged();
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const remove = async (photoId: string) => {
+    await clientApi.deleteProgressPhoto(clientId, photoId);
+    onChanged();
+  };
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-4">
+      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Progress Photos</h4>
+      <div className="flex flex-wrap items-end gap-3 mb-4">
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">View</label>
+          <Select options={PHOTO_VIEW_TYPES} value={viewType} onChange={(e) => setViewType(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Photo (JPG, JPEG, PNG)</label>
+          <input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm text-slate-600 dark:text-slate-300" />
+        </div>
+        <button onClick={upload} disabled={!file || uploading} className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+          {uploading ? 'Uploading...' : 'Upload'}
+        </button>
+      </div>
+      {photos.length === 0 ? (
+        <p className="text-sm text-slate-400">No progress photos uploaded yet.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          {photos.map((p) => <PhotoThumb key={p.id} clientId={clientId} photo={p} onDelete={() => remove(p.id)} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Feature 7: Client Timeline
+const TIMELINE_ICONS: Record<string, string> = {
+  client_created: '🧑', assessment_updated: '📋', weight_updated: '⚖️',
+  report_uploaded: '🧪', note_added: '📝', status_changed: '🔄', photo_uploaded: '📸',
+  communication_logged: '💬', goal_updated: '🎯', archived: '📦', restored: '✅',
+};
+
+const FILTER_OPTIONS = [
+  { label: 'All', value: '' },
+  { label: 'Reports', value: 'report_uploaded' },
+  { label: 'Assessments', value: 'assessment_updated' },
+  { label: 'Communication', value: 'communication_logged' },
+  { label: 'Status Changes', value: 'status_changed' },
+  { label: 'Weight Updates', value: 'weight_updated' },
+];
+
+export function TimelineSection({ events }: { events: ClientTimelineEvent[] }) {
+  const [filter, setFilter] = useState('');
+  const filtered = filter ? events.filter((e) => e.event_type === filter) : events;
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white">Client Timeline</h4>
+        <select
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="px-2.5 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+        >
+          {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      {filtered.length === 0 ? (
+        <p className="text-sm text-slate-400">No activity recorded yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((e) => (
+            <div key={e.id} className="flex gap-3 text-sm">
+              <span>{TIMELINE_ICONS[e.event_type] || '•'}</span>
+              <div className="flex-1 border-b border-slate-100 dark:border-slate-800 pb-2">
+                <p className="text-slate-700 dark:text-slate-200">{e.description}</p>
+                <span className="text-xs text-slate-400">{new Date(e.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
