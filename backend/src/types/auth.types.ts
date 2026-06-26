@@ -1,6 +1,3 @@
-export type AccountType = 'admin' | 'dietitian';
-export type UserStatus = 'pending' | 'active' | 'rejected' | 'suspended';
-
 export interface User {
   id: string;
   first_name: string;
@@ -9,31 +6,35 @@ export interface User {
   phone_number: string;
   organization_name: string;
   password_hash: string;
-  account_type: AccountType;
+  account_type: 'admin' | 'dietitian';
   email_verified: boolean;
   email_verified_at: Date | null;
-  status: UserStatus;
+  status: 'pending' | 'active' | 'rejected' | 'suspended';
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }
 
-export type PublicUser = Omit<User, 'password_hash'>;
-
-export interface RegisterInput {
+export interface PublicUser {
+  id: string;
   first_name: string;
   last_name: string;
   email: string;
   phone_number: string;
   organization_name: string;
-  password: string;
-  confirm_password: string;
+  account_type: string;
+  status: string;
+  email_verified: boolean;
+  email_verified_at: Date | null;
+  last_login_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
 }
 
-export interface LoginInput {
+export interface JWTPayload {
+  sub: string;
   email: string;
-  password: string;
-  remember_me?: boolean;
+  account_type: string;
 }
 
 export interface AuthTokens {
@@ -42,26 +43,17 @@ export interface AuthTokens {
   expires_in: number;
 }
 
-export interface JWTPayload {
-  sub: string;
+export interface RegisterInput {
+  first_name: string;
+  last_name: string;
   email: string;
-  account_type: AccountType;
-  iat: number;
-  exp: number;
+  phone_number: string;
+  organization_name: string;
+  password: string;
 }
 
-export interface ApiResponse<T = void> {
-  success: boolean;
-  message: string;
-  data?: T;
-}
-
-export interface PendingAccountsResponse {
-  users: PublicUser[];
-  total: number;
-}
-
-export interface AllUsersResponse {
-  users: PublicUser[];
-  total: number;
+export interface LoginInput {
+  email: string;
+  password: string;
+  remember_me?: boolean;
 }

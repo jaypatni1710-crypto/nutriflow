@@ -1,52 +1,41 @@
-import { NextFunction, Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
-import { JWTPayload } from '../types/auth.types';
+import type { Context, Next } from 'hono';
+import { verifyAccessToken } from '../utils/jwt';
+import type { JWTPayload } from '../types/auth.types';
 
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JWTPayload;
-    }
+// Augment Hono's context variables
+declare module 'hono' {
+  interface ContextVariableMap {
+    user: JWTPayload;
   }
 }
 
-function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error('JWT_SECRET must be defined and at least 32 characters long');
-  }
-  return secret;
-}
-
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
-  const authHeader = req.headers.authorization;
+export async function authenticate(c: Context, next: Next): Promise<Response | void> {
+  const authHeader = c.req.header('Authorization');
   if (!authHeader?.startsWith('Bearer ')) {
-    res.status(401).json({ success: false, message: 'Authentication required' });
-    return;
+    return c.json({ success: false, message: 'Authentication required' }, 401);
   }
-
   const token = authHeader.slice(7);
   try {
-    const payload = jwt.verify(token, getJwtSecret()) as JWTPayload;
-    req.user = payload;
-    next();
+    const payload = await verifyAccessToken(token, c.env.JWT_SECRET);
+    c.set('user', payload);
+    await next();
   } catch {
-    res.status(401).json({ success: false, message: 'Invalid or expired token' });
+    return c.json({ success: false, message: 'Invalid or expired token' }, 401);
   }
 }
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (!req.user || req.user.account_type !== 'admin') {
-    res.status(403).json({ success: false, message: 'Admin access required' });
-    return;
+export async function requireAdmin(c: Context, next: Next): Promise<Response | void> {
+  const user = c.get('user');
+  if (!user || user.account_type !== 'admin') {
+    return c.json({ success: false, message: 'Admin access required' }, 403);
   }
-  next();
+  await next();
 }
 
-export function requireDietitian(req: Request, res: Response, next: NextFunction): void {
-  if (!req.user || req.user.account_type !== 'dietitian') {
-    res.status(403).json({ success: false, message: 'Dietitian access required' });
-    return;
+export async function requireDietitian(c: Context, next: Next): Promise<Response | void> {
+  const user = c.get('user');
+  if (!user || user.account_type !== 'dietitian') {
+    return c.json({ success: false, message: 'Dietitian access required' }, 403);
   }
-  next();
+  await next();
 }

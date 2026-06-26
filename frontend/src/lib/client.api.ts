@@ -1,6 +1,9 @@
 import { ClientFormData, ClientFullProfile, ClientListResponse } from '../types/client.types';
 
-const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api/auth').replace('/auth', '/clients');
+// VITE_API_URL should be set to your Worker root, e.g.:
+//   https://nutriflow-api.YOUR-SUBDOMAIN.workers.dev
+// No trailing slash, no path suffix.
+const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/clients`;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('access_token');
@@ -80,7 +83,7 @@ export const clientApi = {
   uploadProgressPhoto: (id: string, viewType: string, file: File) => {
     const form = new FormData();
     form.append('view_type', viewType);
-    form.append('file', file);
+    form.append('photo', file); // fixed: Worker expects 'photo'
     return request<{ success: boolean; data: any }>(`/${id}/progress-photos`, { method: 'POST', body: form });
   },
 
@@ -140,7 +143,7 @@ export const clientApi = {
   removeTag: (id: string, tag: string) =>
     request<{ success: boolean; data: string[] }>(`/${id}/tags/${encodeURIComponent(tag)}`, { method: 'DELETE' }),
 
-  listAllTags: () => request<{ success: boolean; data: string[] }>(`/tags/all`),
+  listAllTags: () => request<{ success: boolean; data: string[] }>(`/tags`), // fixed: was /tags/all
 
   // Feature 4: Duplicate Detection
   checkDuplicate: (phone?: string, whatsapp?: string, email?: string) =>
@@ -148,8 +151,8 @@ export const clientApi = {
 
   // Feature 5: Archive
   archiveClient: (id: string) =>
-    request<{ success: boolean; data: any }>(`/${id}/archive`, { method: 'PATCH' }),
+    request<{ success: boolean; data: any }>(`/${id}/archive`, { method: 'POST' }), // fixed: was PATCH
 
   restoreClient: (id: string) =>
-    request<{ success: boolean; data: any }>(`/${id}/restore`, { method: 'PATCH' }),
+    request<{ success: boolean; data: any }>(`/${id}/restore`, { method: 'POST' }), // fixed: was PATCH
 };

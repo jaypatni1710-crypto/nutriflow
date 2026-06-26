@@ -1,6 +1,9 @@
 import { ApiResponse, AuthTokens, LoginFormData, RegisterFormData, User } from '../types/auth.types';
 
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api/auth';
+// VITE_API_URL should be set to your Worker root, e.g.:
+//   https://nutriflow-api.YOUR-SUBDOMAIN.workers.dev
+// No trailing slash, no path suffix.
+const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/auth`;
 
 async function request<T>(
   path: string,

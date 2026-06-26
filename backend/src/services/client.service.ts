@@ -26,7 +26,6 @@ function bmiCategory(bmi: number | null): string | null {
   return 'Obese';
 }
 
-// Mifflin-St Jeor
 function calcBmr(weightKg?: number, heightCm?: number, age?: number | null, gender?: string): number | null {
   if (!weightKg || !heightCm || !age) return null;
   const base = 10 * weightKg + 6.25 * heightCm - 5 * age;
@@ -76,18 +75,12 @@ export class ClientService {
       params.push(`%${search}%`);
       conditions.push(`(c.first_name || ' ' || c.last_name ILIKE $${params.length} OR c.phone_number ILIKE $${params.length})`);
     }
-    if (goal) {
-      params.push(goal);
-      conditions.push(`c.primary_goal = $${params.length}`);
-    }
+    if (goal) { params.push(goal); conditions.push(`c.primary_goal = $${params.length}`); }
     if (condition) {
       params.push(condition);
       conditions.push(`EXISTS (SELECT 1 FROM client_medical_history mh WHERE mh.client_id = c.id AND $${params.length} = ANY(mh.conditions))`);
     }
-    if (status) {
-      params.push(status);
-      conditions.push(`c.status = $${params.length}`);
-    }
+    if (status) { params.push(status); conditions.push(`c.status = $${params.length}`); }
     if (tag) {
       params.push(tag);
       conditions.push(`EXISTS (SELECT 1 FROM client_tags t WHERE t.client_id = c.id AND t.tag = $${params.length})`);
@@ -95,7 +88,6 @@ export class ClientService {
 
     const where = conditions.join(' AND ');
     const offset = (page - 1) * limit;
-
     const countRes = await this.db.query(`SELECT COUNT(*) FROM clients c WHERE ${where}`, params);
     const total = parseInt(countRes.rows[0].count, 10);
 
@@ -111,39 +103,25 @@ export class ClientService {
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
-
     return { data: dataRes.rows, total, page, limit, total_pages: Math.ceil(total / limit) };
   }
 
   async createClient(dietitianId: string, input: CreateClientInput) {
-    const client = await this.db.connect();
+    const conn = await this.db.connect();
     try {
-      await client.query('BEGIN');
-
-      const clientRes = await client.query(
+      await conn.query('BEGIN');
+      const clientRes = await conn.query(
         `INSERT INTO clients (
           dietitian_id, first_name, last_name, phone_number, whatsapp_number, email, gender,
           date_of_birth, occupation, city, address, primary_goal, specify_goal, secondary_goals,
           target_weight, target_date
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-        RETURNING *`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING *`,
         [
-          dietitianId,
-          input.first_name,
-          input.last_name,
-          input.phone_number,
-          input.whatsapp_number || null,
-          input.email || null,
-          input.gender || null,
-          input.date_of_birth || null,
-          input.occupation || null,
-          input.city || null,
-          input.address || null,
-          input.primary_goal || null,
-          input.specify_goal || null,
-          input.secondary_goals || [],
-          input.target_weight ?? null,
-          input.target_date || null,
+          dietitianId, input.first_name, input.last_name, input.phone_number,
+          input.whatsapp_number || null, input.email || null, input.gender || null,
+          input.date_of_birth || null, input.occupation || null, input.city || null,
+          input.address || null, input.primary_goal || null, input.specify_goal || null,
+          input.secondary_goals || [], input.target_weight ?? null, input.target_date || null,
         ]
       );
       const newClient = clientRes.rows[0];
@@ -155,7 +133,7 @@ export class ClientService {
       const dailyProtein = calcDailyProtein(input.current_weight_kg);
       const idealWeight = calcIdealWeightRange(input.height_cm);
 
-      await client.query(
+      await conn.query(
         `INSERT INTO client_assessments (
           client_id, height_cm, current_weight_kg, goal_weight_kg, waist_cm, hip_cm, chest_cm, neck_cm,
           bmi, bmi_category, bmr, daily_calories, daily_protein, ideal_weight_min, ideal_weight_max,
@@ -165,72 +143,37 @@ export class ClientService {
           recall_tea_coffee, recall_water
         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)`,
         [
-          newClient.id,
-          input.height_cm ?? null,
-          input.current_weight_kg ?? null,
-          input.goal_weight_kg ?? null,
-          input.waist_cm ?? null,
-          input.hip_cm ?? null,
-          input.chest_cm ?? null,
-          input.neck_cm ?? null,
-          bmi,
-          bmiCategory(bmi),
-          bmr,
-          dailyCalories,
-          dailyProtein,
-          idealWeight.min,
-          idealWeight.max,
-          input.diet_type || null,
-          input.specify_diet_type || null,
-          input.food_preferences || null,
-          input.disliked_foods || null,
-          input.food_allergies || null,
-          input.food_intolerances || null,
-          input.wake_up_time || null,
-          input.sleep_time || null,
-          input.water_intake_per_day || null,
-          input.working_hours || null,
-          input.stress_level || null,
-          input.activity_level || null,
-          input.exercise_routine || null,
-          input.lifestyle_notes || null,
-          input.recall_breakfast || null,
-          input.recall_lunch || null,
-          input.recall_dinner || null,
-          input.recall_snacks || null,
-          input.recall_tea_coffee || null,
-          input.recall_water || null,
+          newClient.id, input.height_cm ?? null, input.current_weight_kg ?? null, input.goal_weight_kg ?? null,
+          input.waist_cm ?? null, input.hip_cm ?? null, input.chest_cm ?? null, input.neck_cm ?? null,
+          bmi, bmiCategory(bmi), bmr, dailyCalories, dailyProtein, idealWeight.min, idealWeight.max,
+          input.diet_type || null, input.specify_diet_type || null, input.food_preferences || null,
+          input.disliked_foods || null, input.food_allergies || null, input.food_intolerances || null,
+          input.wake_up_time || null, input.sleep_time || null, input.water_intake_per_day || null,
+          input.working_hours || null, input.stress_level || null, input.activity_level || null,
+          input.exercise_routine || null, input.lifestyle_notes || null, input.recall_breakfast || null,
+          input.recall_lunch || null, input.recall_dinner || null, input.recall_snacks || null,
+          input.recall_tea_coffee || null, input.recall_water || null,
         ]
       );
-
-      await client.query(
+      await conn.query(
         `INSERT INTO client_medical_history (client_id, conditions, specify_condition, current_medications, family_medical_history, medical_notes)
          VALUES ($1,$2,$3,$4,$5,$6)`,
-        [
-          newClient.id,
-          input.conditions || [],
-          input.specify_condition || null,
-          input.current_medications || null,
-          input.family_medical_history || null,
-          input.medical_notes || null,
-        ]
+        [newClient.id, input.conditions || [], input.specify_condition || null, input.current_medications || null, input.family_medical_history || null, input.medical_notes || null]
       );
-
       if (input.current_weight_kg) {
-        await client.query(
+        await conn.query(
           `INSERT INTO client_progress_logs (client_id, weight_kg, bmi, waist_cm) VALUES ($1,$2,$3,$4)`,
           [newClient.id, input.current_weight_kg, bmi, input.waist_cm ?? null]
         );
       }
-
-      await client.query('COMMIT');
+      await conn.query('COMMIT');
       await this.addTimelineEvent(newClient.id, 'client_created', 'Client record created');
       return newClient;
     } catch (err) {
-      await client.query('ROLLBACK');
+      await conn.query('ROLLBACK');
       throw err;
     } finally {
-      client.release();
+      conn.release();
     }
   }
 
@@ -274,29 +217,16 @@ export class ClientService {
     if (!existing) return null;
 
     const clientFields: Record<string, any> = {
-      first_name: input.first_name,
-      last_name: input.last_name,
-      phone_number: input.phone_number,
-      whatsapp_number: input.whatsapp_number,
-      email: input.email,
-      gender: input.gender,
-      date_of_birth: input.date_of_birth,
-      occupation: input.occupation,
-      city: input.city,
-      address: input.address,
-      primary_goal: input.primary_goal,
-      specify_goal: input.specify_goal,
-      secondary_goals: input.secondary_goals,
-      target_weight: input.target_weight,
-      target_date: input.target_date,
+      first_name: input.first_name, last_name: input.last_name, phone_number: input.phone_number,
+      whatsapp_number: input.whatsapp_number, email: input.email, gender: input.gender,
+      date_of_birth: input.date_of_birth, occupation: input.occupation, city: input.city,
+      address: input.address, primary_goal: input.primary_goal, specify_goal: input.specify_goal,
+      secondary_goals: input.secondary_goals, target_weight: input.target_weight, target_date: input.target_date,
     };
     const setClauses: string[] = [];
     const params: any[] = [];
     for (const [k, v] of Object.entries(clientFields)) {
-      if (v !== undefined) {
-        params.push(v);
-        setClauses.push(`${k} = $${params.length}`);
-      }
+      if (v !== undefined) { params.push(v); setClauses.push(`${k} = $${params.length}`); }
     }
     if (setClauses.length > 0) {
       params.push(clientId);
@@ -307,33 +237,15 @@ export class ClientService {
     }
 
     const assessmentFields: Record<string, any> = {
-      height_cm: input.height_cm,
-      current_weight_kg: input.current_weight_kg,
-      goal_weight_kg: input.goal_weight_kg,
-      waist_cm: input.waist_cm,
-      hip_cm: input.hip_cm,
-      chest_cm: input.chest_cm,
-      neck_cm: input.neck_cm,
-      diet_type: input.diet_type,
-      specify_diet_type: input.specify_diet_type,
-      food_preferences: input.food_preferences,
-      disliked_foods: input.disliked_foods,
-      food_allergies: input.food_allergies,
-      food_intolerances: input.food_intolerances,
-      wake_up_time: input.wake_up_time,
-      sleep_time: input.sleep_time,
-      water_intake_per_day: input.water_intake_per_day,
-      working_hours: input.working_hours,
-      stress_level: input.stress_level,
-      activity_level: input.activity_level,
-      exercise_routine: input.exercise_routine,
-      lifestyle_notes: input.lifestyle_notes,
-      recall_breakfast: input.recall_breakfast,
-      recall_lunch: input.recall_lunch,
-      recall_dinner: input.recall_dinner,
-      recall_snacks: input.recall_snacks,
-      recall_tea_coffee: input.recall_tea_coffee,
-      recall_water: input.recall_water,
+      height_cm: input.height_cm, current_weight_kg: input.current_weight_kg, goal_weight_kg: input.goal_weight_kg,
+      waist_cm: input.waist_cm, hip_cm: input.hip_cm, chest_cm: input.chest_cm, neck_cm: input.neck_cm,
+      diet_type: input.diet_type, specify_diet_type: input.specify_diet_type, food_preferences: input.food_preferences,
+      disliked_foods: input.disliked_foods, food_allergies: input.food_allergies, food_intolerances: input.food_intolerances,
+      wake_up_time: input.wake_up_time, sleep_time: input.sleep_time, water_intake_per_day: input.water_intake_per_day,
+      working_hours: input.working_hours, stress_level: input.stress_level, activity_level: input.activity_level,
+      exercise_routine: input.exercise_routine, lifestyle_notes: input.lifestyle_notes,
+      recall_breakfast: input.recall_breakfast, recall_lunch: input.recall_lunch, recall_dinner: input.recall_dinner,
+      recall_snacks: input.recall_snacks, recall_tea_coffee: input.recall_tea_coffee, recall_water: input.recall_water,
     };
 
     if (input.height_cm !== undefined || input.current_weight_kg !== undefined || input.activity_level !== undefined || input.date_of_birth !== undefined || input.gender !== undefined) {
@@ -371,67 +283,35 @@ export class ClientService {
     const aSet: string[] = [];
     const aParams: any[] = [];
     for (const [k, v] of Object.entries(assessmentFields)) {
-      if (v !== undefined) {
-        aParams.push(v);
-        aSet.push(`${k} = $${aParams.length}`);
-      }
+      if (v !== undefined) { aParams.push(v); aSet.push(`${k} = $${aParams.length}`); }
     }
     if (aSet.length > 0) {
       aParams.push(clientId);
-      await this.db.query(
-        `INSERT INTO client_assessments (client_id) VALUES ($${aParams.length}) ON CONFLICT (client_id) DO NOTHING`,
-        [clientId]
-      );
+      await this.db.query(`INSERT INTO client_assessments (client_id) VALUES ($${aParams.length}) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
       await this.db.query(`UPDATE client_assessments SET ${aSet.join(', ')} WHERE client_id = $${aParams.length}`, aParams);
     }
 
     const medFields: Record<string, any> = {
-      conditions: input.conditions,
-      specify_condition: input.specify_condition,
-      current_medications: input.current_medications,
-      family_medical_history: input.family_medical_history,
+      conditions: input.conditions, specify_condition: input.specify_condition,
+      current_medications: input.current_medications, family_medical_history: input.family_medical_history,
       medical_notes: input.medical_notes,
     };
     const mSet: string[] = [];
     const mParams: any[] = [];
     for (const [k, v] of Object.entries(medFields)) {
-      if (v !== undefined) {
-        mParams.push(v);
-        mSet.push(`${k} = $${mParams.length}`);
-      }
+      if (v !== undefined) { mParams.push(v); mSet.push(`${k} = $${mParams.length}`); }
     }
     if (mSet.length > 0) {
-      await this.db.query(
-        `INSERT INTO client_medical_history (client_id) VALUES ($1) ON CONFLICT (client_id) DO NOTHING`,
-        [clientId]
-      );
+      await this.db.query(`INSERT INTO client_medical_history (client_id) VALUES ($1) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
       mParams.push(clientId);
       await this.db.query(`UPDATE client_medical_history SET ${mSet.join(', ')} WHERE client_id = $${mParams.length}`, mParams);
     }
-
     return this.getClientById(dietitianId, clientId);
   }
 
   async deleteClient(dietitianId: string, clientId: string) {
     const res = await this.db.query(`DELETE FROM clients WHERE id = $1 AND dietitian_id = $2`, [clientId, dietitianId]);
     return (res.rowCount ?? 0) > 0;
-  }
-
-  async addLabReport(clientId: string, reportType: string, filePath: string, originalFilename: string, uploadedBy: string) {
-    const res = await this.db.query(
-      `INSERT INTO client_lab_reports (client_id, report_type, file_path, original_filename, uploaded_by) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [clientId, reportType, filePath, originalFilename, uploadedBy]
-    );
-    await this.addTimelineEvent(clientId, 'report_uploaded', `${reportType} report uploaded`);
-    return res.rows[0];
-  }
-
-  async deleteLabReport(clientId: string, reportId: string) {
-    const res = await this.db.query(
-      `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path`,
-      [reportId, clientId]
-    );
-    return res.rows[0] || null;
   }
 
   async addNote(clientId: string, dietitianId: string, content: string) {
@@ -467,47 +347,17 @@ export class ClientService {
     const res = await this.db.query(
       `INSERT INTO client_food_frequency (client_id, fruits, vegetables, dairy_products, fast_food, sweets, sugary_drinks, tea_coffee, fried_foods, bakery_products, packaged_foods)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
-      [
-        clientId, input.fruits || null, input.vegetables || null, input.dairy_products || null,
-        input.fast_food || null, input.sweets || null, input.sugary_drinks || null, input.tea_coffee || null,
-        input.fried_foods || null, input.bakery_products || null, input.packaged_foods || null,
-      ]
+      [clientId, input.fruits || null, input.vegetables || null, input.dairy_products || null,
+       input.fast_food || null, input.sweets || null, input.sugary_drinks || null, input.tea_coffee || null,
+       input.fried_foods || null, input.bakery_products || null, input.packaged_foods || null]
     );
     await this.addTimelineEvent(clientId, 'assessment_updated', 'Food frequency questionnaire updated');
     return res.rows[0];
   }
 
   async listFoodFrequency(clientId: string) {
-    const res = await this.db.query(
-      `SELECT * FROM client_food_frequency WHERE client_id = $1 ORDER BY created_at DESC`,
-      [clientId]
-    );
+    const res = await this.db.query(`SELECT * FROM client_food_frequency WHERE client_id = $1 ORDER BY created_at DESC`, [clientId]);
     return res.rows;
-  }
-
-  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
-    const res = await this.db.query(
-      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [clientId, viewType, filePath, originalFilename]
-    );
-    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
-    return res.rows[0];
-  }
-
-  async listProgressPhotos(clientId: string) {
-    const res = await this.db.query(
-      `SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY uploaded_at DESC`,
-      [clientId]
-    );
-    return res.rows;
-  }
-
-  async deleteProgressPhoto(clientId: string, photoId: string) {
-    const res = await this.db.query(
-      `DELETE FROM client_progress_photos WHERE id = $1 AND client_id = $2 RETURNING file_path`,
-      [photoId, clientId]
-    );
-    return res.rows[0] || null;
   }
 
   async updateStatus(dietitianId: string, clientId: string, status: string) {
@@ -515,21 +365,15 @@ export class ClientService {
       `UPDATE clients SET status = $1 WHERE id = $2 AND dietitian_id = $3 RETURNING *`,
       [status, clientId, dietitianId]
     );
-    if (res.rows[0]) {
-      await this.addTimelineEvent(clientId, 'status_changed', `Status changed to ${status.replace('_', ' ')}`);
-    }
+    if (res.rows[0]) await this.addTimelineEvent(clientId, 'status_changed', `Status changed to ${status.replace('_', ' ')}`);
     return res.rows[0] || null;
   }
 
   async getTimeline(clientId: string) {
-    const res = await this.db.query(
-      `SELECT * FROM client_timeline WHERE client_id = $1 ORDER BY created_at DESC`,
-      [clientId]
-    );
+    const res = await this.db.query(`SELECT * FROM client_timeline WHERE client_id = $1 ORDER BY created_at DESC`, [clientId]);
     return res.rows;
   }
 
-  // Feature 1: Client Communication Log
   async addCommunication(clientId: string, dietitianId: string, type: string, description?: string) {
     const res = await this.db.query(
       `INSERT INTO client_communications (client_id, dietitian_id, type, description) VALUES ($1,$2,$3,$4) RETURNING *`,
@@ -557,7 +401,6 @@ export class ClientService {
     return (res.rowCount ?? 0) > 0;
   }
 
-  // Feature 3: Client Tags
   async addTag(clientId: string, tag: string) {
     await this.db.query(
       `INSERT INTO client_tags (client_id, tag) VALUES ($1,$2) ON CONFLICT (client_id, tag) DO NOTHING`,
@@ -573,7 +416,7 @@ export class ClientService {
 
   async listTags(clientId: string) {
     const res = await this.db.query(`SELECT tag FROM client_tags WHERE client_id = $1 ORDER BY tag`, [clientId]);
-    return res.rows.map((r) => r.tag);
+    return res.rows.map((r: any) => r.tag);
   }
 
   async listAllTags(dietitianId: string) {
@@ -581,35 +424,23 @@ export class ClientService {
       `SELECT DISTINCT t.tag FROM client_tags t JOIN clients c ON c.id = t.client_id WHERE c.dietitian_id = $1 ORDER BY t.tag`,
       [dietitianId]
     );
-    return res.rows.map((r) => r.tag);
+    return res.rows.map((r: any) => r.tag);
   }
 
-  // Feature 4: Duplicate Client Detection
   async checkDuplicate(dietitianId: string, phone?: string, whatsapp?: string, email?: string) {
     const conditions: string[] = [];
     const params: any[] = [dietitianId];
-    if (phone) {
-      params.push(phone);
-      conditions.push(`phone_number = $${params.length} OR whatsapp_number = $${params.length}`);
-    }
-    if (whatsapp && whatsapp !== phone) {
-      params.push(whatsapp);
-      conditions.push(`phone_number = $${params.length} OR whatsapp_number = $${params.length}`);
-    }
-    if (email) {
-      params.push(email);
-      conditions.push(`email = $${params.length}`);
-    }
+    if (phone) { params.push(phone); conditions.push(`phone_number = $${params.length} OR whatsapp_number = $${params.length}`); }
+    if (whatsapp && whatsapp !== phone) { params.push(whatsapp); conditions.push(`phone_number = $${params.length} OR whatsapp_number = $${params.length}`); }
+    if (email) { params.push(email); conditions.push(`email = $${params.length}`); }
     if (conditions.length === 0) return [];
     const res = await this.db.query(
-      `SELECT id, first_name, last_name, phone_number, whatsapp_number, email FROM clients
-       WHERE dietitian_id = $1 AND (${conditions.join(' OR ')}) LIMIT 5`,
+      `SELECT id, first_name, last_name, phone_number, whatsapp_number, email FROM clients WHERE dietitian_id = $1 AND (${conditions.join(' OR ')}) LIMIT 5`,
       params
     );
     return res.rows;
   }
 
-  // Feature 5: Archive Client
   async archiveClient(dietitianId: string, clientId: string) {
     const res = await this.db.query(
       `UPDATE clients SET is_archived = true, archived_at = NOW() WHERE id = $1 AND dietitian_id = $2 RETURNING *`,
@@ -625,6 +456,45 @@ export class ClientService {
       [clientId, dietitianId]
     );
     if (res.rows[0]) await this.addTimelineEvent(clientId, 'restored', 'Client restored');
+    return res.rows[0] || null;
+  }
+
+  async addLabReport(clientId: string, reportType: string, filePath: string, originalFilename: string, uploadedBy: string) {
+    const res = await this.db.query(
+      `INSERT INTO client_lab_reports (client_id, report_type, file_path, original_filename, uploaded_by) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [clientId, reportType, filePath, originalFilename, uploadedBy]
+    );
+    await this.addTimelineEvent(clientId, 'report_uploaded', `${reportType} report uploaded`);
+    return res.rows[0];
+  }
+
+  async deleteLabReport(clientId: string, reportId: string) {
+    const res = await this.db.query(
+      `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path`,
+      [reportId, clientId]
+    );
+    return res.rows[0] || null;
+  }
+
+  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
+    const res = await this.db.query(
+      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [clientId, viewType, filePath, originalFilename]
+    );
+    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
+    return res.rows[0];
+  }
+
+  async listProgressPhotos(clientId: string) {
+    const res = await this.db.query(`SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY uploaded_at DESC`, [clientId]);
+    return res.rows;
+  }
+
+  async deleteProgressPhoto(clientId: string, photoId: string) {
+    const res = await this.db.query(
+      `DELETE FROM client_progress_photos WHERE id = $1 AND client_id = $2 RETURNING file_path`,
+      [photoId, clientId]
+    );
     return res.rows[0] || null;
   }
 }
