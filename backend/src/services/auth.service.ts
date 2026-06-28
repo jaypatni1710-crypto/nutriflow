@@ -87,7 +87,7 @@ export class AuthService {
 
   async login(input: LoginInput): Promise<AuthTokens> {
     const result = await this.db.query(`SELECT * FROM users WHERE email = $1`, [input.email.toLowerCase()]);
-    if (result.rows.length === 0) throw new Error('INVALID_CREDENTIALS');
+    if (result.rows.length === 0) throw new Error('EMAIL_NOT_FOUND');
     const user: User = result.rows[0];
 
     const passwordMatch = await comparePassword(input.password, user.password_hash);

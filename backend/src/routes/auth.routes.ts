@@ -12,7 +12,7 @@ import {
 const ERROR_MESSAGES: Record<string, { status: number; message: string }> = {
   EMAIL_EXISTS:                  { status: 409, message: 'An account with this email already exists' },
   PHONE_EXISTS:                  { status: 409, message: 'An account with this phone number already exists' },
-  INVALID_CREDENTIALS:           { status: 401, message: 'Invalid email or password' },
+  EMAIL_NOT_FOUND:               { status: 401, message: 'This email address is not registered' },
   EMAIL_NOT_VERIFIED:            { status: 403, message: 'Please verify your email before logging in' },
   ACCOUNT_PENDING:               { status: 403, message: 'ACCOUNT_PENDING' },
   ACCOUNT_REJECTED:              { status: 403, message: 'ACCOUNT_REJECTED' },
