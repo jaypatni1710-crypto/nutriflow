@@ -11,14 +11,6 @@ type Tab = 'pending' | 'users';
 type ChangeStatusAction = 'approved' | 'rejected' | 'suspended';
 type TempAccessType = 'N/A' | '1_week' | '1_month';
 
-interface ConfirmDialog {
-  open: boolean;
-  kind: 'pending_approve' | 'pending_reject' | 'change_status' | 'delete' | null;
-  action: ChangeStatusAction | null;
-  userId: string;
-  userName: string;
-}
-
 const STATUS_PILL_STYLES: Record<UserStatus, string> = {
   pending: 'bg-amber-100 text-amber-700',
   approved: 'bg-emerald-100 text-emerald-700',
@@ -80,9 +72,10 @@ function DeleteIcon() {
 }
 
 // ─── Allowed status transitions ───────────────────────────────────────────────
+// Only toggle between approved ↔ rejected (no suspend in Users tab per spec)
 function getAllowedTransitions(status: UserStatus): ChangeStatusAction[] {
-  if (status === 'approved') return ['rejected', 'suspended'];
-  if (status === 'rejected') return ['approved', 'suspended'];
+  if (status === 'approved') return ['rejected'];
+  if (status === 'rejected') return ['approved'];
   if (status === 'suspended') return ['approved', 'rejected'];
   return [];
 }
@@ -105,21 +98,28 @@ function TempAccessDropdown({ user, onGranted }: { user: User; onGranted: () => 
   const [toast, setToast] = useState('');
 
   const isRejected = user.status === 'rejected';
+  // Dropdown is only interactive when status is rejected
+  const isDisabled = !isRejected || loading;
 
+  // If not rejected (e.g. approved), always display None regardless of stored value
   const currentValue: TempAccessType = (() => {
+    if (!isRejected) return 'N/A';
     if (!user.temporary_access_type) return 'N/A';
     return user.temporary_access_type as TempAccessType;
   })();
 
   const handleChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value as TempAccessType;
-    if (val === 'N/A') return;
     setLoading(true);
     try {
-      await authApi.grantTemporaryAccess(user.id, val as '1_week' | '1_month');
+      if (val === 'N/A') {
+        await authApi.clearTemporaryAccess(user.id);
+      } else {
+        await authApi.grantTemporaryAccess(user.id, val as '1_week' | '1_month');
+      }
       onGranted();
     } catch {
-      setToast('Failed to grant temporary access.');
+      setToast('Failed to update temporary access.');
       setTimeout(() => setToast(''), 3000);
     } finally {
       setLoading(false);
@@ -131,14 +131,14 @@ function TempAccessDropdown({ user, onGranted }: { user: User; onGranted: () => 
       <select
         value={currentValue}
         onChange={handleChange}
-        disabled={!isRejected || loading}
+        disabled={isDisabled}
         className={`text-xs rounded-lg border px-2 py-1.5 pr-6 focus:outline-none focus:ring-2 focus:ring-teal-400 transition-colors appearance-none
-          ${!isRejected
+          ${isDisabled
             ? 'bg-slate-50 border-slate-200 text-slate-400 cursor-not-allowed dark:bg-slate-800 dark:border-slate-700'
             : 'bg-white border-slate-300 text-slate-700 cursor-pointer hover:border-teal-400 dark:bg-slate-800 dark:border-slate-600 dark:text-slate-200'
           }`}
       >
-        <option value="N/A">N/A</option>
+        <option value="N/A">None</option>
         <option value="1_week">1 Week</option>
         <option value="1_month">1 Month</option>
       </select>
@@ -195,31 +195,35 @@ function UserDetailModal({ user, onClose }: { user: User; onClose: () => void })
             <StatusPill status={user.status} />
           </div>
 
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-500 shrink-0">Registration Date:</span>
-            <span className="font-medium text-slate-900 dark:text-white text-right">{fmtDate(user.created_at)}</span>
+          {/* Dates section */}
+          <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Dates</p>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500 shrink-0">Date of Registration:</span>
+              <span className="font-medium text-slate-900 dark:text-white text-right">{fmtDate(user.created_at)}</span>
+            </div>
+            {user.decision_date && (
+              <div className="flex justify-between gap-4">
+                <span className="text-slate-500 shrink-0">Date of Action Taken:</span>
+                <span className="font-medium text-slate-900 dark:text-white text-right">{fmtDate(user.decision_date)}</span>
+              </div>
+            )}
           </div>
 
-          {user.decision_date && (
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-500 shrink-0">Decision Date:</span>
-              <span className="font-medium text-slate-900 dark:text-white text-right">{fmtDate(user.decision_date)}</span>
-            </div>
-          )}
-
-          {hasTempAccess && (
-            <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+          {/* Temporary Access section — only show when rejected AND temp access was granted */}
+          {hasTempAccess && user.status === 'rejected' && (
+            <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
               <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider">Temporary Access</p>
               <div className="flex justify-between gap-4">
                 <span className="text-slate-500 shrink-0">Type:</span>
                 <span className="font-medium text-slate-900 dark:text-white">{user.temporary_access_type === '1_week' ? '1 Week' : '1 Month'}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Granted:</span>
+                <span className="text-slate-500 shrink-0">From:</span>
                 <span className="font-medium text-slate-900 dark:text-white text-right">{fmt(user.temporary_access_start)}</span>
               </div>
               <div className="flex justify-between gap-4">
-                <span className="text-slate-500 shrink-0">Expires:</span>
+                <span className="text-slate-500 shrink-0">To:</span>
                 <span className="font-medium text-slate-900 dark:text-white text-right">{fmt(user.temporary_access_end)}</span>
               </div>
               {user.temporary_access_end && new Date(user.temporary_access_end) < new Date() && (

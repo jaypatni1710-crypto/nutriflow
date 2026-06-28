@@ -1,6 +1,6 @@
 import { ApiResponse, AuthTokens, LoginFormData, RegisterPayload, User } from '../types/auth.types';
 
-const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/auth`;
+const BASE = `${import.meta.env.VITE_API_URL || ''}/api/auth`;
 
 async function request<T>(
   path: string,
@@ -74,6 +74,9 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ access_type }),
     }),
+
+  clearTemporaryAccess: (user_id: string) =>
+    request(`/admin/users/${user_id}/temporary-access`, { method: 'DELETE' }),
 
   deleteUser: (userId: string) =>
     request(`/admin/users/${userId}`, { method: 'DELETE' }),

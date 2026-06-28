@@ -8,10 +8,12 @@ export interface RateLimitConfig {
 }
 
 export async function checkRateLimit(
-  kv: KVNamespace,
+  kv: KVNamespace | undefined,
   identifier: string,
   config: RateLimitConfig
 ): Promise<{ limited: boolean; remaining: number }> {
+  // If KV binding is missing (e.g. wrangler dev without preview_id), skip rate limiting
+  if (!kv) return { limited: false, remaining: config.max };
   const key = `rl:${config.keyPrefix}:${identifier}`;
   const windowSecs = Math.ceil(config.windowMs / 1000);
 

@@ -3,7 +3,7 @@ import { ClientFormData, ClientFullProfile, ClientListResponse } from '../types/
 // VITE_API_URL should be set to your Worker root, e.g.:
 //   https://nutriflow-api.YOUR-SUBDOMAIN.workers.dev
 // No trailing slash, no path suffix.
-const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/clients`;
+const BASE = `${import.meta.env.VITE_API_URL || ''}/api/clients`;
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('access_token');

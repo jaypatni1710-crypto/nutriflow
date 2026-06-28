@@ -214,14 +214,7 @@ export class AuthService {
       [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
-    // Optionally send approval email — import lazily to avoid breaking if email fails
-    try {
-      const { sendApprovalEmail } = await import('./email.service');
-      await sendApprovalEmail(
-        result.rows[0].email, result.rows[0].first_name,
-        this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
-      );
-    } catch (_) { /* non-fatal */ }
+    // Email notifications disabled
   }
 
   async rejectAccount(userId: string): Promise<void> {
@@ -232,10 +225,7 @@ export class AuthService {
       [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
-    try {
-      const { sendRejectionEmail } = await import('./email.service');
-      await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
-    } catch (_) { /* non-fatal */ }
+    // Email notifications disabled
   }
 
   async suspendAccount(userId: string): Promise<void> {
@@ -245,10 +235,7 @@ export class AuthService {
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
     await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-    try {
-      const { sendSuspensionEmail } = await import('./email.service');
-      await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
-    } catch (_) { /* non-fatal */ }
+    // Email notifications disabled
   }
 
   async getAllUsers(): Promise<PublicUser[]> {
@@ -270,10 +257,6 @@ export class AuthService {
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
     if (status === 'suspended') {
       await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-      try {
-        const { sendSuspensionEmail } = await import('./email.service');
-        await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
-      } catch (_) {}
     } else if (status === 'rejected') {
       await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
       // Clear temp access when re-rejecting
@@ -281,16 +264,8 @@ export class AuthService {
         `UPDATE users SET temporary_access_type = NULL, temporary_access_start = NULL, temporary_access_end = NULL WHERE id = $1`,
         [userId]
       );
-      try {
-        const { sendRejectionEmail } = await import('./email.service');
-        await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
-      } catch (_) {}
-    } else if (status === 'approved') {
-      try {
-        const { sendApprovalEmail } = await import('./email.service');
-        await sendApprovalEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl);
-      } catch (_) {}
     }
+    // Email notifications disabled
   }
 
   async grantTemporaryAccess(userId: string, accessType: '1_week' | '1_month'): Promise<void> {
@@ -311,6 +286,15 @@ export class AuthService {
     await this.db.query(
       `UPDATE users SET temporary_access_type = $1, temporary_access_start = $2, temporary_access_end = $3 WHERE id = $4`,
       [accessType, now, end, userId]
+    );
+  }
+
+  async clearTemporaryAccess(userId: string): Promise<void> {
+    const check = await this.db.query(`SELECT status FROM users WHERE id = $1`, [userId]);
+    if (check.rows.length === 0) throw new Error('USER_NOT_FOUND');
+    await this.db.query(
+      `UPDATE users SET temporary_access_type = NULL, temporary_access_start = NULL, temporary_access_end = NULL WHERE id = $1`,
+      [userId]
     );
   }
 

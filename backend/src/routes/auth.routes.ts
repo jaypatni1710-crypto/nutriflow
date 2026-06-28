@@ -36,7 +36,7 @@ function handleError(c: any, error: unknown) {
   return c.json({ success: false, message: 'An unexpected error occurred' }, 500);
 }
 
-export function createAuthRouter(authService: AuthService): Hono {
+export function createAuthRouter(authService: AuthService): Hono<{ Bindings: Env }> {
   const router = new Hono<{ Bindings: Env }>();
 
   // POST /register
@@ -169,6 +169,16 @@ export function createAuthRouter(authService: AuthService): Hono {
     try {
       await authService.grantTemporaryAccess(id, c.req.valid('json').access_type);
       return c.json({ success: true, message: 'Temporary access granted successfully' });
+    } catch (e) { return handleError(c, e); }
+  });
+
+  // DELETE /admin/users/:id/temporary-access — clear/reset temporary access
+  router.delete('/admin/users/:id/temporary-access', authenticate, requireAdmin, async (c) => {
+    const { id } = c.req.param();
+    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
+    try {
+      await authService.clearTemporaryAccess(id);
+      return c.json({ success: true, message: 'Temporary access cleared' });
     } catch (e) { return handleError(c, e); }
   });
 

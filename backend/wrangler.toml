@@ -1,20 +1,29 @@
 name = "nutriflow-api"
 main = "src/index.ts"
-compatibility_date = "2024-07-25"
+compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
-# KV namespace for rate limiting
+# KV namespace for rate limiting.
+# No id/preview_id set: Wrangler auto-provisions a local KV namespace for
+# `wrangler dev`, and will create + persist a real one on first `wrangler deploy`.
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "REPLACE_WITH_YOUR_KV_ID"
-preview_id = "REPLACE_WITH_YOUR_KV_PREVIEW_ID"
+id = "local"
+preview_id = "local"
 
-# Hyperdrive for PostgreSQL (keeps your existing Neon/Supabase/Railway DB)
-[[hyperdrive]]
-binding = "HYPERDRIVE"
-id = "REPLACE_WITH_YOUR_HYPERDRIVE_ID"
+# Hyperdrive for PostgreSQL — ONLY needed for production deploys.
+# For local dev (this Codespace), the Worker connects directly to Neon via
+# the DATABASE_URL value in backend/.dev.vars — see that file for setup.
+#
+# Before running `wrangler deploy`, uncomment this block and run:
+#   wrangler hyperdrive create nutriflow-db --connection-string="<your Neon connection string>"
+# then paste the printed id below.
+#
+# [[hyperdrive]]
+# binding = "HYPERDRIVE"
+# id = "REPLACE_WITH_YOUR_HYPERDRIVE_ID"
 
-# Secrets — set via: wrangler secret put JWT_SECRET
+# Secrets — set via: wrangler secret put JWT_SECRET (only needed before deploying)
 # Required secrets:
 #   JWT_SECRET        - at least 32 chars
 #   RESEND_API_KEY    - from resend.com (free tier: 3000 emails/month)
@@ -22,3 +31,4 @@ id = "REPLACE_WITH_YOUR_HYPERDRIVE_ID"
 
 [vars]
 SMTP_FROM = "noreply@nutriflow.app"
+
