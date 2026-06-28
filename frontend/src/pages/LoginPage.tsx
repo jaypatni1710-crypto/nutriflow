@@ -6,12 +6,66 @@ import { Alert, AuthLayout, Button, Input } from '../components/auth/AuthUI';
 
 interface LoginForm { email: string; password: string; remember_me: boolean; }
 
-const ERROR_CODES: Record<string, { message: string; action?: string }> = {
-  'Please verify your email before logging in': { message: 'Please verify your email before logging in.', action: 'resend' },
-  'Your account is awaiting administrator approval': { message: 'Your account is awaiting administrator approval. Please wait.' },
-  'Your registration request has been declined. Please contact support': { message: 'Your registration request has been declined. Please contact support.' },
-  'Your account has been suspended. Please contact support': { message: 'Your account has been suspended. Please contact support.' },
-};
+const CONTACT_INFO = (
+  <span>
+    <strong>📞 7874994587</strong> &nbsp;|&nbsp; <strong>✉️ jd.software2025@gmail.com</strong>
+  </span>
+);
+
+type LoginErrorKind =
+  | 'ACCOUNT_PENDING'
+  | 'ACCOUNT_REJECTED'
+  | 'ACCOUNT_TEMP_ACCESS_EXPIRED'
+  | 'ACCOUNT_SUSPENDED'
+  | 'generic';
+
+function getErrorKind(msg: string): LoginErrorKind {
+  if (msg === 'ACCOUNT_PENDING') return 'ACCOUNT_PENDING';
+  if (msg === 'ACCOUNT_REJECTED') return 'ACCOUNT_REJECTED';
+  if (msg === 'ACCOUNT_TEMP_ACCESS_EXPIRED') return 'ACCOUNT_TEMP_ACCESS_EXPIRED';
+  if (msg === 'ACCOUNT_SUSPENDED') return 'ACCOUNT_SUSPENDED';
+  return 'generic';
+}
+
+function StatusMessage({ kind, genericMessage }: { kind: LoginErrorKind; genericMessage: string }) {
+  if (kind === 'ACCOUNT_PENDING') {
+    return (
+      <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 space-y-1">
+        <p className="font-semibold">Account Under Review</p>
+        <p>Your account is currently under review. Please wait for administrator approval.</p>
+        <p className="mt-2 text-xs text-amber-700">For assistance contact: {CONTACT_INFO}</p>
+      </div>
+    );
+  }
+  if (kind === 'ACCOUNT_REJECTED') {
+    return (
+      <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-800 space-y-1">
+        <p className="font-semibold">Account Rejected</p>
+        <p>Your account has been rejected by the administrator.</p>
+        <p className="mt-2 text-xs text-red-700">Please contact: {CONTACT_INFO}</p>
+      </div>
+    );
+  }
+  if (kind === 'ACCOUNT_TEMP_ACCESS_EXPIRED') {
+    return (
+      <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-800 space-y-1">
+        <p className="font-semibold">Temporary Access Expired</p>
+        <p>Your temporary access has expired. Please contact the administrator.</p>
+        <p className="mt-2 text-xs text-red-700">📞 7874994587 &nbsp;|&nbsp; ✉️ jd.software2025@gmail.com</p>
+      </div>
+    );
+  }
+  if (kind === 'ACCOUNT_SUSPENDED') {
+    return (
+      <div className="rounded-lg bg-slate-100 border border-slate-300 p-4 text-sm text-slate-800 space-y-1">
+        <p className="font-semibold">Account Suspended</p>
+        <p>Your account has been suspended. Please contact the administrator.</p>
+        <p className="mt-2 text-xs text-slate-600">📞 7874994587 &nbsp;|&nbsp; ✉️ jd.software2025@gmail.com</p>
+      </div>
+    );
+  }
+  return <Alert type="error" message={genericMessage} />;
+}
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,9 +73,8 @@ export default function LoginPage() {
   const [form, setForm] = useState<LoginForm>({ email: '', password: '', remember_me: false });
   const [errors, setErrors] = useState<Partial<Record<keyof LoginForm, string>>>({});
   const [apiError, setApiError] = useState('');
-  const [apiErrorAction, setApiErrorAction] = useState<string | undefined>();
+  const [errorKind, setErrorKind] = useState<LoginErrorKind>('generic');
   const [loading, setLoading] = useState(false);
-  const [resendLoading, setResendLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   const set = (field: keyof LoginForm) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -29,7 +82,7 @@ export default function LoginPage() {
     setForm((f) => ({ ...f, [field]: val }));
     setErrors((er) => ({ ...er, [field]: undefined }));
     setApiError('');
-    setApiErrorAction(undefined);
+    setErrorKind('generic');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -44,30 +97,21 @@ export default function LoginPage() {
       const res = await authApi.login(form);
       if (res.data) {
         setTokens(res.data);
+        // Store temporary_access_end if present
+        if (res.data.temporary_access_end) {
+          localStorage.setItem('temporary_access_end', res.data.temporary_access_end);
+        } else {
+          localStorage.removeItem('temporary_access_end');
+        }
         const payload = JSON.parse(atob(res.data.access_token.split('.')[1]));
         navigate(payload.account_type === 'admin' ? '/admin/dashboard' : '/dashboard');
       }
     } catch (err: any) {
       const msg: string = err?.message || 'Login failed. Please try again.';
-      const mapped = ERROR_CODES[msg];
-      setApiError(mapped?.message || msg);
-      setApiErrorAction(mapped?.action);
+      setErrorKind(getErrorKind(msg));
+      setApiError(msg);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResend = async () => {
-    if (!form.email) return;
-    setResendLoading(true);
-    try {
-      await authApi.resendVerification(form.email);
-      setApiError('Verification email sent. Please check your inbox.');
-      setApiErrorAction(undefined);
-    } catch {
-      setApiError('Failed to resend. Please try again.');
-    } finally {
-      setResendLoading(false);
     }
   };
 
@@ -105,17 +149,7 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {apiError && (
-          <Alert
-            type={apiError.includes('sent') ? 'success' : 'error'}
-            message={apiError}
-            action={
-              apiErrorAction === 'resend'
-                ? { label: 'Resend Verification Email', onClick: handleResend, loading: resendLoading }
-                : undefined
-            }
-          />
-        )}
+        {apiError && <StatusMessage kind={errorKind} genericMessage={apiError} />}
 
         <Button type="submit" loading={loading} className="w-full mt-2">Login</Button>
       </form>
@@ -126,8 +160,6 @@ export default function LoginPage() {
           Register
         </button>
       </p>
-
-
     </AuthLayout>
   );
 }

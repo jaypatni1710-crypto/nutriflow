@@ -6,3 +6,5 @@ build/
 .env.local
 .DS_Store
 *.log
+.dev.vars
+backend/.dev.vars

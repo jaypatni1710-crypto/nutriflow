@@ -1,14 +1,10 @@
 import { Pool } from 'pg';
 
-// Cloudflare Hyperdrive provides a connection string that routes through their
-// connection pooler — same pg API, no cold-start latency, no idle timeouts.
-// The HYPERDRIVE binding exposes `.connectionString` at runtime.
-
-let pool: Pool | null = null;
-
-export function getDb(hyperdrive: Hyperdrive): Pool {
-  if (!pool) {
-    pool = new Pool({ connectionString: hyperdrive.connectionString });
+export function createDbPool(env: Env) {
+  // Use direct connection for local dev, Hyperdrive for production
+  const connectionString = env.DATABASE_URL || env.HYPERDRIVE?.connectionString;
+  if (!connectionString) {
+    throw new Error('No database connection string found. Set DATABASE_URL in .dev.vars or configure Hyperdrive.');
   }
-  return pool;
+  return new Pool({ connectionString });
 }

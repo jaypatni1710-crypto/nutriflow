@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    localStorage.removeItem('temporary_access_end');
     setState({ isAuthenticated: false, accountType: null, userId: null, user: null, isLoading: false });
   }, [clearRefreshTimer]);
 

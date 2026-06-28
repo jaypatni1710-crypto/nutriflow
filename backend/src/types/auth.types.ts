@@ -5,11 +5,18 @@ export interface User {
   email: string;
   phone_number: string;
   organization_name: string;
+  address: string | null;
+  qualification: string | null;
+  experience: number | null;
   password_hash: string;
   account_type: 'admin' | 'dietitian';
   email_verified: boolean;
   email_verified_at: Date | null;
-  status: 'pending' | 'active' | 'rejected' | 'suspended';
+  status: 'pending' | 'approved' | 'rejected' | 'suspended';
+  decision_date: Date | null;
+  temporary_access_type: '1_week' | '1_month' | null;
+  temporary_access_start: Date | null;
+  temporary_access_end: Date | null;
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -22,10 +29,17 @@ export interface PublicUser {
   email: string;
   phone_number: string;
   organization_name: string;
+  address: string | null;
+  qualification: string | null;
+  experience: number | null;
   account_type: string;
   status: string;
   email_verified: boolean;
   email_verified_at: Date | null;
+  decision_date: Date | null;
+  temporary_access_type: string | null;
+  temporary_access_start: Date | null;
+  temporary_access_end: Date | null;
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -41,6 +55,7 @@ export interface AuthTokens {
   access_token: string;
   refresh_token: string;
   expires_in: number;
+  temporary_access_end?: string | null;
 }
 
 export interface RegisterInput {
@@ -49,6 +64,9 @@ export interface RegisterInput {
   email: string;
   phone_number: string;
   organization_name: string;
+  address?: string;
+  qualification?: string;
+  experience?: number;
   password: string;
 }
 

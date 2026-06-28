@@ -18,6 +18,17 @@ export const registerSchema = z
       .min(1, 'Phone number is required')
       .regex(/^[\+]?[0-9\s\-()]{7,20}$/, 'Invalid phone number'),
     organization_name: z.string().min(1, 'Organization name is required').max(255),
+    address: z.string().max(500).optional().or(z.literal('')),
+    qualification: z.string().max(255).optional().or(z.literal('')),
+    experience: z
+      .union([z.number(), z.string()])
+      .optional()
+      .transform((val) => {
+        if (val === undefined || val === '') return undefined;
+        const num = typeof val === 'string' ? Number(val) : val;
+        return Number.isFinite(num) ? num : undefined;
+      })
+      .refine((val) => val === undefined || val >= 0, { message: 'Experience must be a positive number' }),
     password: passwordSchema,
     confirm_password: z.string().min(1, 'Please confirm your password'),
   })
@@ -64,5 +75,9 @@ export const refreshTokenSchema = z.object({
 });
 
 export const changeStatusSchema = z.object({
-  status: z.enum(['active', 'rejected', 'suspended'], { message: 'Invalid status' }),
+  status: z.enum(['approved', 'rejected', 'suspended'], { message: 'Invalid status' }),
+});
+
+export const temporaryAccessSchema = z.object({
+  access_type: z.enum(['1_week', '1_month'], { message: 'Invalid access type' }),
 });

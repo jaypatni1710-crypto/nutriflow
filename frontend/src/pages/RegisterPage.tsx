@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../lib/auth.api';
-import { RegisterFormData } from '../types/auth.types';
+import { RegisterFormData, RegisterPayload } from '../types/auth.types';
 import { Alert, AuthLayout, Button, Input, Modal } from '../components/auth/AuthUI';
 
 const INITIAL: RegisterFormData = {
@@ -10,6 +10,9 @@ const INITIAL: RegisterFormData = {
   email: '',
   phone_number: '',
   organization_name: '',
+  address: '',
+  qualification: '',
+  experience: '',
   password: '',
   confirm_password: '',
 };
@@ -24,6 +27,10 @@ function validate(data: RegisterFormData): Partial<Record<keyof RegisterFormData
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) errors.email = 'Invalid email format';
   if (!data.phone_number.trim()) errors.phone_number = 'Phone number is required';
   if (!data.organization_name.trim()) errors.organization_name = 'Organization name is required';
+  if (data.experience.trim()) {
+    const num = Number(data.experience);
+    if (!Number.isFinite(num) || num < 0) errors.experience = 'Enter a valid number of years';
+  }
   if (!data.password) errors.password = 'Password is required';
   else if (!PASSWORD_RE.test(data.password))
     errors.password = 'Min 8 chars with uppercase, lowercase, number & special character';
@@ -55,7 +62,13 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await authApi.register(form);
+      const payload: RegisterPayload = {
+        ...form,
+        address: form.address.trim(),
+        qualification: form.qualification.trim(),
+        experience: form.experience.trim() === '' ? undefined : Number(form.experience),
+      };
+      await authApi.register(payload);
       setShowSuccess(true);
     } catch (err: any) {
       setApiError(err?.message || 'Registration failed. Please try again.');
@@ -79,6 +92,11 @@ export default function RegisterPage() {
         <Input label="Email Address" type="email" value={form.email} onChange={set('email')} error={errors.email} autoComplete="email" />
         <Input label="Phone Number" type="tel" value={form.phone_number} onChange={set('phone_number')} error={errors.phone_number} placeholder="+91 98765 43210" />
         <Input label="Organization Name" value={form.organization_name} onChange={set('organization_name')} error={errors.organization_name} placeholder="Your clinic or practice name" />
+        <Input label="Address" value={form.address} onChange={set('address')} error={errors.address} placeholder="Full address" />
+        <div className="grid grid-cols-2 gap-3">
+          <Input label="Qualification" value={form.qualification} onChange={set('qualification')} error={errors.qualification} placeholder="e.g. B.Sc Nutrition" />
+          <Input label="Experience (years)" type="number" min={0} value={form.experience} onChange={set('experience')} error={errors.experience} placeholder="e.g. 3" />
+        </div>
 
         <div className="relative">
           <Input label="Password" type={showPassword ? 'text' : 'password'} value={form.password} onChange={set('password')} error={errors.password} autoComplete="new-password" />
@@ -110,18 +128,24 @@ export default function RegisterPage() {
         </button>
       </p>
 
-      {/* Success Modal */}
+      {/* Registration Success Modal */}
       <Modal open={showSuccess}>
         <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-7 h-7 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h3 className="text-lg font-bold text-slate-900 mb-2">Account Created Successfully</h3>
-        <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-          A verification link has been sent to <strong className="text-slate-700">{form.email}</strong>.
-          Please verify your email before logging in.
-        </p>
+        <h3 className="text-lg font-bold text-slate-900 mb-2 text-center">Registration Successful</h3>
+        <div className="text-sm text-slate-600 mb-6 leading-relaxed space-y-2 text-center">
+          <p>Your account has been submitted successfully.</p>
+          <p>Your account is currently <strong className="text-slate-700">under review</strong> by the administrator.</p>
+          <p>You will be able to log in only after approval.</p>
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-xs text-slate-500 mb-1">For any queries, contact:</p>
+            <p className="font-semibold text-slate-700">📞 7874994587</p>
+            <p className="font-semibold text-slate-700">✉️ jd.software2025@gmail.com</p>
+          </div>
+        </div>
         <Button onClick={() => navigate('/login')} className="w-full">Go to Login</Button>
       </Modal>
     </AuthLayout>

@@ -1,8 +1,5 @@
-import { ApiResponse, AuthTokens, LoginFormData, RegisterFormData, User } from '../types/auth.types';
+import { ApiResponse, AuthTokens, LoginFormData, RegisterPayload, User } from '../types/auth.types';
 
-// VITE_API_URL should be set to your Worker root, e.g.:
-//   https://nutriflow-api.YOUR-SUBDOMAIN.workers.dev
-// No trailing slash, no path suffix.
 const BASE = `${import.meta.env.VITE_API_URL || 'http://localhost:4000'}/api/auth`;
 
 async function request<T>(
@@ -24,7 +21,7 @@ async function request<T>(
 }
 
 export const authApi = {
-  register: (body: RegisterFormData) =>
+  register: (body: RegisterPayload) =>
     request('/register', { method: 'POST', body: JSON.stringify(body) }),
 
   login: (body: LoginFormData) =>
@@ -69,10 +66,15 @@ export const authApi = {
 
   getProfile: () => request<User>('/profile'),
 
-  changeUserStatus: (user_id: string, status: 'active' | 'rejected' | 'suspended') =>
+  changeUserStatus: (user_id: string, status: 'approved' | 'rejected' | 'suspended') =>
     request(`/admin/users/${user_id}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
 
-  // NEW: Delete user
+  grantTemporaryAccess: (user_id: string, access_type: '1_week' | '1_month') =>
+    request(`/admin/users/${user_id}/temporary-access`, {
+      method: 'POST',
+      body: JSON.stringify({ access_type }),
+    }),
+
   deleteUser: (userId: string) =>
     request(`/admin/users/${userId}`, { method: 'DELETE' }),
 };

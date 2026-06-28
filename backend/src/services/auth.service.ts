@@ -2,13 +2,6 @@ import type { Pool } from 'pg';
 import type { AuthTokens, LoginInput, PublicUser, RegisterInput, User } from '../types/auth.types';
 import { hashPassword, comparePassword, generateSecureToken, hashToken } from '../utils/crypto';
 import { signAccessToken } from '../utils/jwt';
-import {
-  sendVerificationEmail,
-  sendPasswordResetEmail,
-  sendApprovalEmail,
-  sendRejectionEmail,
-  sendSuspensionEmail,
-} from './email.service';
 
 const REFRESH_TOKEN_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 * 1000;
@@ -50,31 +43,26 @@ export class AuthService {
     }
 
     const passwordHash = await hashPassword(input.password);
-    const result = await this.db.query(
-      `INSERT INTO users (first_name, last_name, email, phone_number, organization_name, password_hash, account_type, email_verified, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'dietitian', false, 'pending') RETURNING id`,
-      [input.first_name, input.last_name, input.email.toLowerCase(), input.phone_number, input.organization_name, passwordHash]
-    );
-    const userId = result.rows[0].id;
-    await this.sendVerificationEmailForUser(userId, input.email.toLowerCase(), input.first_name);
-  }
-
-  private async sendVerificationEmailForUser(userId: string, email: string, firstName: string): Promise<void> {
-    const token = generateSecureToken();
-    const tokenHash = await hashToken(token);
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // No email verification — save as pending directly, email_verified = true to skip that gate
     await this.db.query(
-      `INSERT INTO email_verification_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (user_id) DO UPDATE SET token_hash = $2, expires_at = $3`,
-      [userId, tokenHash, expiresAt]
+      `INSERT INTO users (first_name, last_name, email, phone_number, organization_name, address, qualification, experience, password_hash, account_type, email_verified, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'dietitian', true, 'pending') RETURNING id`,
+      [
+        input.first_name,
+        input.last_name,
+        input.email.toLowerCase(),
+        input.phone_number,
+        input.organization_name,
+        input.address ?? null,
+        input.qualification ?? null,
+        input.experience ?? null,
+        passwordHash,
+      ]
     );
-    await sendVerificationEmail(
-      email, token, firstName,
-      this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
-    );
+    // No verification email sent — admin will review
   }
 
+  // Kept for compatibility (unused in new flow but routes still exist)
   async verifyEmail(token: string): Promise<void> {
     const tokenHash = await hashToken(token);
     const result = await this.db.query(
@@ -93,14 +81,8 @@ export class AuthService {
   }
 
   async resendVerification(email: string): Promise<void> {
-    const result = await this.db.query(
-      `SELECT id, first_name, email_verified FROM users WHERE email = $1`,
-      [email.toLowerCase()]
-    );
-    if (result.rows.length === 0) return;
-    const user = result.rows[0];
-    if (user.email_verified) throw new Error('ALREADY_VERIFIED');
-    await this.sendVerificationEmailForUser(user.id, email.toLowerCase(), user.first_name);
+    // No-op in new flow
+    return;
   }
 
   async login(input: LoginInput): Promise<AuthTokens> {
@@ -111,10 +93,33 @@ export class AuthService {
     const passwordMatch = await comparePassword(input.password, user.password_hash);
     if (!passwordMatch) throw new Error('INVALID_CREDENTIALS');
 
-    if (!user.email_verified) throw new Error('EMAIL_NOT_VERIFIED');
     if (user.status === 'pending') throw new Error('ACCOUNT_PENDING');
-    if (user.status === 'rejected') throw new Error('ACCOUNT_REJECTED');
     if (user.status === 'suspended') throw new Error('ACCOUNT_SUSPENDED');
+
+    if (user.status === 'rejected') {
+      // Check temporary access
+      if (user.temporary_access_end) {
+        const now = new Date();
+        const expiry = new Date(user.temporary_access_end);
+        if (now <= expiry) {
+          // Temporary access still valid — allow login
+          const accessToken = await signAccessToken(user, this.jwtSecret);
+          const refreshToken = await this.createRefreshToken(user.id, input.remember_me ?? false);
+          await this.db.query(`UPDATE users SET last_login_at = NOW() WHERE id = $1`, [user.id]);
+          return {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_in: 15 * 60,
+            temporary_access_end: expiry.toISOString(),
+          };
+        } else {
+          throw new Error('ACCOUNT_TEMP_ACCESS_EXPIRED');
+        }
+      }
+      throw new Error('ACCOUNT_REJECTED');
+    }
+
+    if (user.status !== 'approved') throw new Error('INVALID_CREDENTIALS');
 
     const accessToken = await signAccessToken(user, this.jwtSecret);
     const refreshToken = await this.createRefreshToken(user.id, input.remember_me ?? false);
@@ -146,6 +151,7 @@ export class AuthService {
   }
 
   async forgotPassword(email: string): Promise<void> {
+    const { sendPasswordResetEmail } = await import('./email.service');
     const result = await this.db.query(`SELECT id, first_name FROM users WHERE email = $1`, [email.toLowerCase()]);
     if (result.rows.length === 0) return;
     const user = result.rows[0];
@@ -180,7 +186,11 @@ export class AuthService {
 
   async getProfile(userId: string): Promise<PublicUser> {
     const result = await this.db.query(
-      `SELECT id, first_name, last_name, email, phone_number, organization_name, account_type, status, email_verified, email_verified_at, last_login_at, created_at, updated_at FROM users WHERE id = $1`,
+      `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,
+              status, email_verified, email_verified_at, decision_date,
+              temporary_access_type, temporary_access_start, temporary_access_end,
+              last_login_at, created_at, updated_at
+       FROM users WHERE id = $1`,
       [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
@@ -189,8 +199,10 @@ export class AuthService {
 
   async getPendingAccounts(): Promise<PublicUser[]> {
     const result = await this.db.query(
-      `SELECT id, first_name, last_name, email, phone_number, organization_name, account_type,
-              email_verified, email_verified_at, status, last_login_at, created_at, updated_at
+      `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,
+              email_verified, email_verified_at, status, decision_date,
+              temporary_access_type, temporary_access_start, temporary_access_end,
+              last_login_at, created_at, updated_at
        FROM users WHERE account_type = 'dietitian' AND status = 'pending' ORDER BY created_at DESC`
     );
     return result.rows;
@@ -198,55 +210,108 @@ export class AuthService {
 
   async approveAccount(userId: string): Promise<void> {
     const result = await this.db.query(
-      `UPDATE users SET status = 'active' WHERE id = $1 RETURNING email, first_name`, [userId]
+      `UPDATE users SET status = 'approved', decision_date = NOW() WHERE id = $1 RETURNING email, first_name`,
+      [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
-    await sendApprovalEmail(
-      result.rows[0].email, result.rows[0].first_name,
-      this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
-    );
+    // Optionally send approval email — import lazily to avoid breaking if email fails
+    try {
+      const { sendApprovalEmail } = await import('./email.service');
+      await sendApprovalEmail(
+        result.rows[0].email, result.rows[0].first_name,
+        this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
+      );
+    } catch (_) { /* non-fatal */ }
   }
 
   async rejectAccount(userId: string): Promise<void> {
     const result = await this.db.query(
-      `UPDATE users SET status = 'rejected' WHERE id = $1 RETURNING email, first_name`, [userId]
+      `UPDATE users SET status = 'rejected', decision_date = NOW(),
+       temporary_access_type = NULL, temporary_access_start = NULL, temporary_access_end = NULL
+       WHERE id = $1 RETURNING email, first_name`,
+      [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
-    await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+    try {
+      const { sendRejectionEmail } = await import('./email.service');
+      await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+    } catch (_) { /* non-fatal */ }
   }
 
   async suspendAccount(userId: string): Promise<void> {
     const result = await this.db.query(
-      `UPDATE users SET status = 'suspended' WHERE id = $1 RETURNING email, first_name`, [userId]
+      `UPDATE users SET status = 'suspended', decision_date = NOW() WHERE id = $1 RETURNING email, first_name`,
+      [userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
     await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-    await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+    try {
+      const { sendSuspensionEmail } = await import('./email.service');
+      await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+    } catch (_) { /* non-fatal */ }
   }
 
   async getAllUsers(): Promise<PublicUser[]> {
     const result = await this.db.query(
-      `SELECT id, first_name, last_name, email, phone_number, organization_name, account_type,
-              email_verified, email_verified_at, status, last_login_at, created_at, updated_at
+      `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,
+              email_verified, email_verified_at, status, decision_date,
+              temporary_access_type, temporary_access_start, temporary_access_end,
+              last_login_at, created_at, updated_at
        FROM users WHERE account_type = 'dietitian' AND status != 'pending' ORDER BY created_at DESC`
     );
     return result.rows;
   }
 
-  async changeUserStatus(userId: string, status: 'active' | 'rejected' | 'suspended'): Promise<void> {
+  async changeUserStatus(userId: string, status: 'approved' | 'rejected' | 'suspended'): Promise<void> {
     const result = await this.db.query(
-      `UPDATE users SET status = $1 WHERE id = $2 RETURNING email, first_name`, [status, userId]
+      `UPDATE users SET status = $1, decision_date = NOW() WHERE id = $2 RETURNING email, first_name`,
+      [status, userId]
     );
     if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
     if (status === 'suspended') {
       await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-      await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+      try {
+        const { sendSuspensionEmail } = await import('./email.service');
+        await sendSuspensionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+      } catch (_) {}
     } else if (status === 'rejected') {
       await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-      await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
-    } else if (status === 'active') {
-      await sendApprovalEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl);
+      // Clear temp access when re-rejecting
+      await this.db.query(
+        `UPDATE users SET temporary_access_type = NULL, temporary_access_start = NULL, temporary_access_end = NULL WHERE id = $1`,
+        [userId]
+      );
+      try {
+        const { sendRejectionEmail } = await import('./email.service');
+        await sendRejectionEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from);
+      } catch (_) {}
+    } else if (status === 'approved') {
+      try {
+        const { sendApprovalEmail } = await import('./email.service');
+        await sendApprovalEmail(result.rows[0].email, result.rows[0].first_name, this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl);
+      } catch (_) {}
     }
+  }
+
+  async grantTemporaryAccess(userId: string, accessType: '1_week' | '1_month'): Promise<void> {
+    // Check user is rejected
+    const check = await this.db.query(`SELECT status FROM users WHERE id = $1`, [userId]);
+    if (check.rows.length === 0) throw new Error('USER_NOT_FOUND');
+    if (check.rows[0].status !== 'rejected') throw new Error('INVALID_STATUS_FOR_TEMP_ACCESS');
+
+    const now = new Date();
+    let end: Date;
+    if (accessType === '1_week') {
+      end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    } else {
+      end = new Date(now);
+      end.setMonth(end.getMonth() + 1);
+    }
+
+    await this.db.query(
+      `UPDATE users SET temporary_access_type = $1, temporary_access_start = $2, temporary_access_end = $3 WHERE id = $4`,
+      [accessType, now, end, userId]
+    );
   }
 
   async deleteUser(userId: string): Promise<void> {
