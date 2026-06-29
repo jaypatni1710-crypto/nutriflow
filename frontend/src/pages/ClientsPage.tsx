@@ -5,10 +5,31 @@ import { ClientListItem } from '../types/client.types';
 import { GOAL_OPTIONS, MEDICAL_CONDITIONS, STATUS_OPTIONS, STATUS_LABELS } from '../lib/clientOptions';
 import { AddClientModal } from '../components/clients/AddClientModal';
 import { Toast } from '../components/clients/Toast';
-import { TagPill } from '../components/clients/ClientTags';
-import { StatusBadge } from '../components/clients/Enhancements';
 
 const LIMIT = 10;
+
+function calcAge(dob: string | null): number | string {
+  if (!dob) return '—';
+  const b = new Date(dob);
+  if (isNaN(b.getTime())) return '—';
+  const now = new Date();
+  let age = now.getFullYear() - b.getFullYear();
+  const m = now.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age--;
+  return age;
+}
+
+function BmiStatusBadge({ category }: { category: string | null }) {
+  if (!category) return <span className="text-slate-400">—</span>;
+  const colors: Record<string, string> = {
+    Underweight: 'text-amber-600 bg-amber-50 border-amber-200',
+    Normal: 'text-teal-600 bg-teal-50 border-teal-200',
+    Overweight: 'text-orange-600 bg-orange-50 border-orange-200',
+    Obese: 'text-red-600 bg-red-50 border-red-200',
+  };
+  const color = colors[category] || 'text-slate-600 bg-slate-50 border-slate-200';
+  return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${color}`}>{category}</span>;
+}
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -155,11 +176,8 @@ export default function ClientsPage() {
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
                   <th className="px-4 py-3">Full Name</th>
                   <th className="px-4 py-3">Phone Number</th>
-                  <th className="px-4 py-3">Primary Goal</th>
-                  <th className="px-4 py-3">Tags</th>
-                  <th className="px-4 py-3">Current Weight</th>
-                  <th className="px-4 py-3">BMI</th>
-                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Age</th>
+                  <th className="px-4 py-3">BMI Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -168,19 +186,8 @@ export default function ClientsPage() {
                   <tr key={c.id} className={`border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 ${c.is_archived ? 'opacity-60' : ''}`}>
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{c.first_name} {c.last_name}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.phone_number}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.primary_goal || '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {(c.tags || []).slice(0, 3).map((t) => <TagPill key={t} tag={t} />)}
-                        {(c.tags || []).length > 3 && <span className="text-xs text-slate-400">+{c.tags.length - 3}</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.current_weight_kg ? `${c.current_weight_kg} kg` : '—'}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.bmi ?? '—'}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={c.status} />
-                      {c.is_archived && <span className="ml-1 text-xs text-slate-400">(archived)</span>}
-                    </td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{calcAge(c.date_of_birth)}</td>
+                    <td className="px-4 py-3"><BmiStatusBadge category={c.bmi_category} /></td>
                     <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
                       <button onClick={() => navigate(`/dashboard/clients/${c.id}`)} className="text-teal-600 hover:text-teal-700 font-medium text-xs">View</button>
                       {!c.is_archived && (

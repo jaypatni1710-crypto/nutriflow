@@ -3,6 +3,7 @@ export interface ClientListItem {
   first_name: string;
   last_name: string;
   phone_number: string;
+  date_of_birth: string | null;
   primary_goal: string | null;
   status: 'active' | 'inactive' | 'completed' | 'on_hold';
   is_archived: boolean;
@@ -10,6 +11,7 @@ export interface ClientListItem {
   updated_at: string;
   current_weight_kg: number | null;
   bmi: number | null;
+  bmi_category: string | null;
   tags: string[];
 }
 
