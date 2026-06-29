@@ -8,8 +8,8 @@ compatibility_flags = ["nodejs_compat"]
 # `wrangler dev`, and will create + persist a real one on first `wrangler deploy`.
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "local"
-preview_id = "local"
+id = "08b3ca021cb64cf5a83c499c1f087b0c"
+preview_id = "08b3ca021cb64cf5a83c499c1f087b0c"
 
 # Hyperdrive for PostgreSQL — ONLY needed for production deploys.
 # For local dev (this Codespace), the Worker connects directly to Neon via
