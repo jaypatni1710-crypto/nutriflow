@@ -49,7 +49,4 @@ export const SUGGESTED_TAGS = [
   'Weight Loss', 'Weight Gain', 'PCOS', 'Diabetes', 'Thyroid', 'Pregnancy', 'Bariatric', 'VIP', 'High Priority',
 ];
 
-export const STEP_LABELS = [
-  'Basic Information', 'Goal Information', 'Anthropometric Data', 'Medical History',
-  'Nutrition Assessment', 'Lifestyle Assessment', '24 Hour Recall',
-];
+export const STEP_LABELS = ['Client Details', 'Body & Lifestyle', 'Health & Medical'];

@@ -70,3 +70,46 @@ export function MultiSelectPills({
     </div>
   );
 }
+
+// Number input with dropdown suggestions, but still freely typeable (uses native datalist)
+export function NumberPickerInput({
+  id,
+  value,
+  onChange,
+  suggestions,
+  min,
+  max,
+  step = 0.1,
+  placeholder,
+}: {
+  id: string;
+  value: number | string | undefined;
+  onChange: (v: string) => void;
+  suggestions: number[];
+  min?: number;
+  max?: number;
+  step?: number;
+  placeholder?: string;
+}) {
+  return (
+    <>
+      <input
+        list={id}
+        type="number"
+        inputMode="decimal"
+        min={min}
+        max={max}
+        step={step}
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+        className={baseInput}
+      />
+      <datalist id={id}>
+        {suggestions.map((s) => (
+          <option key={s} value={s} />
+        ))}
+      </datalist>
+    </>
+  );
+}
