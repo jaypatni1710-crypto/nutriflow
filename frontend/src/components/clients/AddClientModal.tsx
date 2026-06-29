@@ -37,6 +37,13 @@ function calcBmi(heightCm?: number | string, weightKg?: number | string): { bmi:
   return { bmi: Math.round(bmi * 10) / 10, category, color };
 }
 
+// Strips the auto-appended " L" so the raw number can be edited
+function waterNumberOnly(v?: string | null): string {
+  if (!v) return '';
+  const match = v.match(/[\d.]+/);
+  return match ? match[0] : '';
+}
+
 export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
@@ -50,6 +57,7 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
   const validateStep = (): string | null => {
     if (step === 1) {
       if (!form.first_name || !form.last_name || !form.phone_number) return 'Please fill all required fields.';
+      if (!/^\d{10}$/.test(form.phone_number)) return 'Phone number must be exactly 10 digits.';
       if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) return 'Please enter a valid email address.';
     }
     if (step === 2) {
@@ -144,7 +152,14 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
                 <TextInput value={form.last_name} onChange={(e) => set({ last_name: e.target.value })} />
               </Field>
               <Field label="Phone Number" required>
-                <TextInput type="tel" value={form.phone_number} onChange={(e) => set({ phone_number: e.target.value })} />
+                <TextInput
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10 digit number"
+                  value={form.phone_number}
+                  onChange={(e) => set({ phone_number: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                />
               </Field>
               <Field label="Email">
                 <TextInput type="email" value={form.email || ''} onChange={(e) => set({ email: e.target.value })} />
@@ -152,14 +167,14 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
               <Field label="Gender">
                 <Select options={['Male', 'Female', 'Other']} value={form.gender || ''} onChange={(e) => set({ gender: e.target.value })} />
               </Field>
+              <Field label="Occupation">
+                <TextInput value={form.occupation || ''} onChange={(e) => set({ occupation: e.target.value })} />
+              </Field>
               <Field label="Date Of Birth">
                 <TextInput type="date" max={new Date().toISOString().split('T')[0]} value={form.date_of_birth || ''} onChange={(e) => set({ date_of_birth: e.target.value })} />
               </Field>
               <Field label="Age">
                 <TextInput value={age ?? ''} readOnly className="opacity-70" />
-              </Field>
-              <Field label="Occupation">
-                <TextInput value={form.occupation || ''} onChange={(e) => set({ occupation: e.target.value })} />
               </Field>
               <Field label="City">
                 <TextInput value={form.city || ''} onChange={(e) => set({ city: e.target.value })} />
@@ -196,9 +211,24 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
                   <TextInput type="time" value={form.sleep_time || ''} onChange={(e) => set({ sleep_time: e.target.value })} />
                 </Field>
                 <Field label="Water Intake Per Day">
-                  <TextInput placeholder="e.g. 2.5 L" value={form.water_intake_per_day || ''} onChange={(e) => set({ water_intake_per_day: e.target.value })} />
+                  <TextInput
+                    type="number"
+                    inputMode="decimal"
+                    step={0.1}
+                    min={0}
+                    placeholder="e.g. 2.5"
+                    value={waterNumberOnly(form.water_intake_per_day)}
+                    onChange={(e) => {
+                      const num = e.target.value;
+                      set({ water_intake_per_day: num === '' ? '' : `${num} L` });
+                    }}
+                  />
                 </Field>
               </div>
+
+              <Field label="Notes (optional)">
+                <TextArea rows={2} value={form.lifestyle_notes || ''} onChange={(e) => set({ lifestyle_notes: e.target.value })} />
+              </Field>
             </div>
           )}
 
@@ -226,7 +256,7 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
               <Field label="Family Medical History">
                 <TextArea rows={2} value={form.family_medical_history || ''} onChange={(e) => set({ family_medical_history: e.target.value })} />
               </Field>
-              <Field label="Medical Notes">
+              <Field label="Medical Notes (optional)">
                 <TextArea rows={2} value={form.medical_notes || ''} onChange={(e) => set({ medical_notes: e.target.value })} />
               </Field>
             </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { clientApi } from '../lib/client.api';
 import { ClientFullProfile, ClientFormData } from '../types/client.types';
@@ -35,6 +35,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export default function ClientProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [profile, setProfile] = useState<ClientFullProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -66,6 +67,14 @@ export default function ClientProfilePage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!loading && profile && searchParams.get('edit') === '1') {
+      startEdit();
+      searchParams.delete('edit');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [loading, profile]);
 
   const startEdit = () => {
     if (!profile) return;

@@ -31,6 +31,35 @@ function BmiStatusBadge({ category }: { category: string | null }) {
   return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${color}`}>{category}</span>;
 }
 
+// Inline icon buttons — no extra dependency needed
+function IconButton({ title, onClick, color, children }: { title: string; onClick: () => void; color: string; children: React.ReactNode }) {
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      className={`inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${color}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+const EyeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" /><circle cx="12" cy="12" r="3" />
+  </svg>
+);
+const PencilIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+  </svg>
+);
+const TrashIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 6h18" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+  </svg>
+);
+
 export default function ClientsPage() {
   const navigate = useNavigate();
   const [clients, setClients] = useState<ClientListItem[]>([]);
@@ -41,7 +70,6 @@ export default function ClientsPage() {
   const [condition, setCondition] = useState('');
   const [status, setStatus] = useState('');
   const [tag, setTag] = useState('');
-  const [showArchived, setShowArchived] = useState(false);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -49,7 +77,6 @@ export default function ClientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ClientListItem | null>(null);
-  const [archiveTarget, setArchiveTarget] = useState<ClientListItem | null>(null);
 
   useEffect(() => {
     clientApi.listAllTags().then((r) => setAllTags(r.data)).catch(() => {});
@@ -59,7 +86,7 @@ export default function ClientsPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await clientApi.list({ page, limit: LIMIT, search, goal, condition, status, tag, archived: showArchived });
+      const res = await clientApi.list({ page, limit: LIMIT, search, goal, condition, status, tag });
       setClients(res.data);
       setTotalPages(res.total_pages || 1);
       setTotal(res.total || 0);
@@ -68,10 +95,10 @@ export default function ClientsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, goal, condition, status, tag, showArchived]);
+  }, [page, search, goal, condition, status, tag]);
 
   useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [search, goal, condition, status, tag, showArchived]);
+  useEffect(() => { setPage(1); }, [search, goal, condition, status, tag]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -83,29 +110,6 @@ export default function ClientsPage() {
     } catch (err: any) {
       setError(err?.message || 'Failed to delete client');
       setDeleteTarget(null);
-    }
-  };
-
-  const handleArchive = async () => {
-    if (!archiveTarget) return;
-    try {
-      await clientApi.archiveClient(archiveTarget.id);
-      setArchiveTarget(null);
-      setToast('Client archived');
-      load();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to archive client');
-      setArchiveTarget(null);
-    }
-  };
-
-  const handleRestore = async (id: string) => {
-    try {
-      await clientApi.restoreClient(id);
-      setToast('Client restored');
-      load();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to restore client');
     }
   };
 
@@ -143,20 +147,12 @@ export default function ClientsPage() {
           <option value="">All Status</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
-      </div>
-
-      {/* Second filter row: tags + archive toggle */}
-      <div className="flex flex-wrap gap-3 mb-4 items-center">
         {allTags.length > 0 && (
           <select value={tag} onChange={(e) => setTag(e.target.value)} className="px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
             <option value="">All Tags</option>
             {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
           </select>
         )}
-        <label className="flex items-center gap-2 cursor-pointer text-sm text-slate-600 dark:text-slate-300 ml-auto">
-          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} className="w-4 h-4 rounded accent-teal-600" />
-          Show Archived
-        </label>
       </div>
 
       {error && <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{error}</div>}
@@ -183,22 +179,23 @@ export default function ClientsPage() {
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className={`border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 ${c.is_archived ? 'opacity-60' : ''}`}>
+                  <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{c.first_name} {c.last_name}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.phone_number}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{calcAge(c.date_of_birth)}</td>
                     <td className="px-4 py-3"><BmiStatusBadge category={c.bmi_category} /></td>
-                    <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
-                      <button onClick={() => navigate(`/dashboard/clients/${c.id}`)} className="text-teal-600 hover:text-teal-700 font-medium text-xs">View</button>
-                      {!c.is_archived && (
-                        <button onClick={() => navigate(`/dashboard/clients/${c.id}?edit=1`)} className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 font-medium text-xs">Edit</button>
-                      )}
-                      {c.is_archived ? (
-                        <button onClick={() => handleRestore(c.id)} className="text-emerald-600 hover:text-emerald-700 font-medium text-xs">Restore</button>
-                      ) : (
-                        <button onClick={() => setArchiveTarget(c)} className="text-amber-600 hover:text-amber-700 font-medium text-xs">Archive</button>
-                      )}
-                      <button onClick={() => setDeleteTarget(c)} className="text-red-500 hover:text-red-600 font-medium text-xs">Delete</button>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <IconButton title="View" color="text-teal-600" onClick={() => navigate(`/dashboard/clients/${c.id}`)}>
+                          <EyeIcon />
+                        </IconButton>
+                        <IconButton title="Edit" color="text-slate-500" onClick={() => navigate(`/dashboard/clients/${c.id}?edit=1`)}>
+                          <PencilIcon />
+                        </IconButton>
+                        <IconButton title="Delete" color="text-red-500" onClick={() => setDeleteTarget(c)}>
+                          <TrashIcon />
+                        </IconButton>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -232,21 +229,6 @@ export default function ClientsPage() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
               <button onClick={handleDelete} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700">Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {archiveTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
-            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-2">Archive Client</h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
-              Archive {archiveTarget.first_name} {archiveTarget.last_name}? They won't appear in the default list but all data is preserved.
-            </p>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setArchiveTarget(null)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-              <button onClick={handleArchive} className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-600 text-white hover:bg-amber-700">Archive</button>
             </div>
           </div>
         </div>
