@@ -48,13 +48,13 @@ app.get('/health', (c) => c.json({ status: 'ok' }));
 // load time. Instead we build the real Hono sub-app per request and delegate to
 // it with the mount-point prefix stripped off the URL (this is what app.route()
 // does internally for a statically-known sub-app).
-function delegate(prefix: string, buildRouter: (env: Env) => Hono) {
+function delegate(prefix: string, buildRouter: (env: Env) => Hono<any>) {
   return (c: any) => {
     const router = buildRouter(c.env);
     const url = new URL(c.req.url);
     url.pathname = url.pathname.slice(prefix.length) || '/';
     const subRequest = new Request(url.toString(), c.req.raw);
-    return router.fetch(subRequest, c.env, c.executionCtx);
+    return router.fetch(subRequest, c.env as Env, c.executionCtx);
   };
 }
 
