@@ -149,12 +149,36 @@ function PhotoThumb({ clientId, photo, label, onDelete }: { clientId: string; ph
           <span className="font-semibold text-slate-900 dark:text-white">{label}</span>
           <span className="block text-slate-400">{new Date(photo.uploaded_at).toLocaleDateString()}</span>
         </div>
-        {onDelete && (
-          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={() => clientApi.downloadProgressPhoto(clientId, photo.id, photo.original_filename)} className="px-2 py-1 text-[10px] font-semibold rounded bg-white/90 text-slate-700 hover:bg-white">DL</button>
-            <button onClick={onDelete} className="px-2 py-1 text-[10px] font-semibold rounded bg-red-500/90 text-white hover:bg-red-600">Del</button>
-          </div>
-        )}
+        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => clientApi.downloadProgressPhoto(clientId, photo.id, photo.original_filename)}
+            title="Download"
+            aria-label="Download photo"
+            className="p-1.5 rounded bg-white/90 text-slate-700 hover:bg-white"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M12 3v12" />
+              <path d="m7 10 5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+          </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              title="Delete"
+              aria-label="Delete photo"
+              className="p-1.5 rounded bg-red-500/90 text-white hover:bg-red-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M3 6h18" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" />
+                <path d="M14 11v6" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
       {fullScreen && url && (
         <div onClick={() => setFullScreen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out">

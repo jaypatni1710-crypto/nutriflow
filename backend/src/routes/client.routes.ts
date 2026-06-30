@@ -384,6 +384,26 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
     }
   });
 
+  router.get('/:id/progress-photos/:photoId/file', async (c) => {
+    try {
+      const photo = await clientService.getProgressPhoto(c.req.param('id'), c.req.param('photoId'));
+      if (!photo) return c.json({ success: false, message: 'Photo not found' }, 404);
+
+      const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+      if (!bucket) return c.json({ success: false, message: 'File storage not configured' }, 501);
+
+      const object = await bucket.get(photo.file_path);
+      if (!object) return c.json({ success: false, message: 'File not found in storage' }, 404);
+
+      c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+      c.header('Cache-Control', 'private, max-age=3600');
+      return c.body(object.body);
+    } catch (err) {
+      console.error(err);
+      return c.json({ success: false, message: 'Failed to fetch photo file' }, 500);
+    }
+  });
+
   router.delete('/:id/progress-photos/:photoId', async (c) => {
     try {
       const photo = await clientService.deleteProgressPhoto(c.req.param('id'), c.req.param('photoId'));

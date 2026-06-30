@@ -541,6 +541,14 @@ export class ClientService {
     return res.rows;
   }
 
+  async getProgressPhoto(clientId: string, photoId: string) {
+    const res = await this.db.query(
+      `SELECT * FROM client_progress_photos WHERE id = $1 AND client_id = $2`,
+      [photoId, clientId]
+    );
+    return res.rows[0] || null;
+  }
+
   async deleteProgressPhoto(clientId: string, photoId: string) {
     const res = await this.db.query(
       `DELETE FROM client_progress_photos WHERE id = $1 AND client_id = $2 RETURNING file_path`,
