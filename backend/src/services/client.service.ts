@@ -472,6 +472,14 @@ export class ClientService {
     return res.rows[0];
   }
 
+  async getLabReport(clientId: string, reportId: string) {
+    const res = await this.db.query(
+      `SELECT * FROM client_lab_reports WHERE id = $1 AND client_id = $2`,
+      [reportId, clientId]
+    );
+    return res.rows[0] || null;
+  }
+
   async deleteLabReport(clientId: string, reportId: string) {
     const res = await this.db.query(
       `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path`,

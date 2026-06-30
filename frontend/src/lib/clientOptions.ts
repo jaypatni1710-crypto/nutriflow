@@ -16,7 +16,7 @@ export const STRESS_LEVELS = ['Low', 'Moderate', 'High'];
 
 export const ACTIVITY_LEVELS = ['Sedentary', 'Lightly Active', 'Moderately Active', 'Very Active', 'Athlete'];
 
-export const LAB_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Other'];
+export const LAB_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Medical History Report', 'Family Medical History Report', 'Other'];
 
 export const FOOD_FREQUENCY_OPTIONS = ['Daily', '4-6 Times Per Week', '2-3 Times Per Week', 'Weekly', 'Monthly', 'Rarely', 'Never'];
 
