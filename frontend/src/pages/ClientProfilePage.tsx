@@ -4,14 +4,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { clientApi } from '../lib/client.api';
 import { ClientFullProfile, ClientFormData } from '../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills } from '../components/clients/FormFields';
-import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, STRESS_LEVELS, ACTIVITY_LEVELS, LAB_REPORT_TYPES } from '../lib/clientOptions';
+import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, STRESS_LEVELS, ACTIVITY_LEVELS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
-import { StatusBadge, StatusSelector, GoalProgressBar, FoodFrequencySection, ProgressPhotosSection, TimelineSection } from '../components/clients/Enhancements';
+import { StatusBadge, StatusSelector, GoalProgressBar, ProgressPhotosSection, TimelineSection } from '../components/clients/Enhancements';
 import { CommunicationLog } from '../components/clients/CommunicationLog';
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
 
-const TABS = ['Overview', 'Assessment', 'Medical History', 'Lab Reports', 'Progress', 'Communication', 'Notes', 'Timeline'] as const;
+const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Communication', 'Notes', 'Timeline'] as const;
 type Tab = typeof TABS[number];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,6 +32,17 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+// Formats a date string (e.g. "1995-08-23" or ISO) as dd-mm-yyyy
+function formatDob(value?: string | null): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return value;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+
 export default function ClientProfilePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -44,11 +55,7 @@ export default function ClientProfilePage() {
   const [form, setForm] = useState<ClientFormData>({} as ClientFormData);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
-  const [reportType, setReportType] = useState(LAB_REPORT_TYPES[0]);
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [newNote, setNewNote] = useState('');
-  const [labFilter, setLabFilter] = useState('');
-  const [labSort, setLabSort] = useState<'newest' | 'oldest'>('newest');
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -117,25 +124,6 @@ export default function ClientProfilePage() {
     }
   };
 
-  const handleUpload = async () => {
-    if (!id || !uploadFile) return;
-    try {
-      await clientApi.uploadLabReport(id, reportType, uploadFile);
-      setUploadFile(null);
-      setToast('Report uploaded');
-      load();
-    } catch (err: any) {
-      setError(err?.message || 'Failed to upload report');
-    }
-  };
-
-  const handleDeleteReport = async (reportId: string) => {
-    if (!id) return;
-    await clientApi.deleteLabReport(id, reportId);
-    setToast('Report deleted');
-    load();
-  };
-
   const handleAddNote = async () => {
     if (!id || !newNote.trim()) return;
     await clientApi.addNote(id, newNote.trim());
@@ -162,7 +150,7 @@ export default function ClientProfilePage() {
   if (error && !profile) return <div className="text-center text-red-500 py-12 text-sm">{error}</div>;
   if (!profile) return null;
 
-  const { client: c, assessment: a, medical_history: m, progress_logs, lab_reports, notes, food_frequency, progress_photos, timeline, communications, tags } = profile;
+  const { client: c, assessment: a, medical_history: m, progress_logs, notes, progress_photos, timeline, communications, tags } = profile;
 
   return (
     <div>
@@ -181,7 +169,7 @@ export default function ClientProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusSelector status={c.status} onChange={handleStatusChange} />
-        {!editing && tab !== 'Lab Reports' && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && tab !== 'Communication' && (
+        {!editing && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && tab !== 'Communication' && (
           <button onClick={startEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Edit</button>
         )}
         {editing && (
@@ -216,7 +204,7 @@ export default function ClientProfilePage() {
           <Section title="Personal Details">
             <Row label="Email" value={c.email} />
             <Row label="Gender" value={c.gender} />
-            <Row label="Date of Birth" value={c.date_of_birth} />
+            <Row label="Date of Birth" value={formatDob(c.date_of_birth)} />
             <Row label="Occupation" value={c.occupation} />
             <Row label="City" value={c.city} />
           </Section>
@@ -259,7 +247,6 @@ export default function ClientProfilePage() {
             <Row label="Activity Level" value={a?.activity_level} />
             <Row label="Notes" value={a?.lifestyle_notes} />
           </Section>
-          <FoodFrequencySection clientId={id!} history={food_frequency} onSaved={() => { setToast('Food frequency saved'); load(); }} />
         </>
       )}
 
@@ -321,58 +308,6 @@ export default function ClientProfilePage() {
             </div>
           </Section>
         </div>
-      )}
-
-      {tab === 'Lab Reports' && (
-        <>
-          <Section title="Upload Report">
-            <div className="flex flex-wrap items-end gap-3">
-              <Field label="Report Type">
-                <Select options={LAB_REPORT_TYPES} value={reportType} onChange={(e) => setReportType(e.target.value)} />
-              </Field>
-              <Field label="File (PDF, JPG, PNG)">
-                <input type="file" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} className="text-sm text-slate-600 dark:text-slate-300" />
-              </Field>
-              <button onClick={handleUpload} disabled={!uploadFile} className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Upload</button>
-            </div>
-          </Section>
-          <Section title="Upload History">
-            <div className="flex flex-wrap items-center gap-3 mb-3">
-              <Select options={LAB_REPORT_TYPES} value={labFilter} onChange={(e) => setLabFilter(e.target.value)} placeholder="All Types" />
-              <select value={labSort} onChange={(e) => setLabSort(e.target.value as 'newest' | 'oldest')} className="px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white">
-                <option value="newest">Latest First</option>
-                <option value="oldest">Oldest First</option>
-              </select>
-            </div>
-            {(() => {
-              const filtered = lab_reports
-                .filter((r) => !labFilter || r.report_type === labFilter)
-                .slice()
-                .sort((x, y) => labSort === 'newest'
-                  ? new Date(y.uploaded_at).getTime() - new Date(x.uploaded_at).getTime()
-                  : new Date(x.uploaded_at).getTime() - new Date(y.uploaded_at).getTime());
-              if (filtered.length === 0) return <p className="text-sm text-slate-400">No lab reports found.</p>;
-              return (
-                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {filtered.map((r) => (
-                    <div key={r.id} className="flex items-center justify-between py-2.5 text-sm">
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">{r.report_type}</span>
-                        <span className="text-slate-400 ml-2">{r.original_filename}</span>
-                        <span className="text-slate-400 ml-2 text-xs">{new Date(r.uploaded_at).toLocaleDateString()}</span>
-                      </div>
-                      <div className="space-x-3">
-                        <button onClick={() => clientApi.downloadLabReport(id!, r.id, r.original_filename)} className="text-teal-600 hover:text-teal-700 font-medium text-xs">Preview</button>
-                        <button onClick={() => clientApi.downloadLabReport(id!, r.id, r.original_filename)} className="text-teal-600 hover:text-teal-700 font-medium text-xs">Download</button>
-                        <button onClick={() => handleDeleteReport(r.id)} className="text-red-500 hover:text-red-600 font-medium text-xs">Delete</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </Section>
-        </>
       )}
 
       {tab === 'Progress' && (
