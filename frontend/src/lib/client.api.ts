@@ -30,7 +30,7 @@ export const clientApi = {
   create: (body: ClientFormData) =>
     request<{ success: boolean; data: any }>('', { method: 'POST', body: JSON.stringify(body) }),
 
-  get: (id: string) => request<{ success: boolean; data: ClientFullProfile }>(`/${id}`),
+  get: (id: string) => request<{ success: boolean; data: ClientFullProfile }>(`/${id}/profile`),
 
   update: (id: string, body: Partial<ClientFormData>) =>
     request<{ success: boolean; data: any }>(`/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
