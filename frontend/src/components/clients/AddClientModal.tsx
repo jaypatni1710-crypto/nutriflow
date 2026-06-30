@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { clientApi } from '../../lib/client.api';
 import { ClientFormData, DuplicateMatch } from '../../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills, NumberPickerInput } from './FormFields';
-import { MEDICAL_CONDITIONS, STRESS_LEVELS, ACTIVITY_LEVELS, STEP_LABELS } from '../../lib/clientOptions';
+import { MEDICAL_CONDITIONS, STRESS_LEVELS, ACTIVITY_LEVELS, STEP_LABELS, DIET_TYPES, GOAL_OPTIONS } from '../../lib/clientOptions';
 import { DuplicateModal } from './ClientExtras';
 
 const TOTAL_STEPS = 3;
@@ -223,6 +223,35 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
                       set({ water_intake_per_day: num === '' ? '' : `${num} L` });
                     }}
                   />
+                </Field>
+                <Field label="Food Preference">
+                  <Select options={DIET_TYPES} value={form.diet_type || ''} onChange={(e) => set({ diet_type: e.target.value })} />
+                </Field>
+              </div>
+
+              {form.diet_type === 'Other' && (
+                <Field label="Specify Food Preference">
+                  <TextInput value={form.specify_diet_type || ''} onChange={(e) => set({ specify_diet_type: e.target.value })} />
+                </Field>
+              )}
+
+              <div className="grid grid-cols-2 gap-4 items-end">
+                <Field label="Goal">
+                  <Select options={GOAL_OPTIONS} value={form.primary_goal || ''} onChange={(e) => set({ primary_goal: e.target.value })} />
+                </Field>
+                {form.primary_goal === 'Other' && (
+                  <Field label="Specify Goal">
+                    <TextInput value={form.specify_goal || ''} onChange={(e) => set({ specify_goal: e.target.value })} />
+                  </Field>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Client Likes to Eat">
+                  <TextInput value={form.food_preferences || ''} onChange={(e) => set({ food_preferences: e.target.value })} placeholder="e.g. Paneer, Fruits, Khichdi" />
+                </Field>
+                <Field label="Client Doesn't Like to Eat">
+                  <TextInput value={form.disliked_foods || ''} onChange={(e) => set({ disliked_foods: e.target.value })} placeholder="e.g. Bitter gourd, Fish" />
                 </Field>
               </div>
 
