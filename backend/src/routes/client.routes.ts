@@ -9,9 +9,10 @@ import {
 } from '../types/client.validation';
 import { generateSecureToken } from '../utils/crypto';
 
-const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Other'];
+const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Family Medical History Report', 'Other'];
 const ALLOWED_REPORT_MIME = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-const ALLOWED_PHOTO_VIEWS = ['Front', 'Side', 'Back'];
+const ALLOWED_PHOTO_TYPES = ['before', 'monthly'];
+const MAX_MONTHLY_PHOTOS = 3;
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/jpg', 'image/png'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (progress photos)
 const MAX_REPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB (lab reports)
@@ -342,15 +343,18 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   });
 
   // --- Progress Photos (R2 file upload) ---
+  // Model: one permanent 'before' photo + a rotating window of up to MAX_MONTHLY_PHOTOS 'monthly' photos.
+  // 'view_type' column is repurposed as a display label (e.g. "Before", "Month 2").
   router.post('/:id/progress-photos', async (c) => {
     try {
+      const clientId = c.req.param('id');
       const formData = await c.req.formData();
       const file = formData.get('photo') as File | null;
-      const viewType = formData.get('view_type') as string | null;
+      const photoType = formData.get('photo_type') as string | null;
 
       if (!file) return c.json({ success: false, message: 'No photo provided' }, 400);
-      if (!viewType || !ALLOWED_PHOTO_VIEWS.includes(viewType)) {
-        return c.json({ success: false, message: 'view_type must be Front, Side or Back' }, 400);
+      if (!photoType || !ALLOWED_PHOTO_TYPES.includes(photoType)) {
+        return c.json({ success: false, message: 'photo_type must be before or monthly' }, 400);
       }
       if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only JPG and PNG files allowed' }, 400);
@@ -360,8 +364,42 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+      const existingPhotos = await clientService.listProgressPhotos(clientId);
+
+      // "before" photo is permanent and unique — block a second upload
+      if (photoType === 'before') {
+        const existingBefore = existingPhotos.find((p: any) => p.photo_type === 'before');
+        if (existingBefore) {
+          return c.json({ success: false, message: 'A before photo already exists for this client. Delete it first to replace.' }, 400);
+        }
+      }
+
+      // Compute display label
+      let label = 'Before';
+      if (photoType === 'monthly') {
+        const monthlyCount = existingPhotos.filter((p: any) => p.photo_type === 'monthly').length;
+        label = `Month ${monthlyCount + 1}`;
+      }
+
       const filePath = await uploadToR2(bucket, 'progress-photos', file);
-      const photo = await clientService.addProgressPhoto(c.req.param('id'), viewType, filePath, file.name);
+      const photo = await clientService.addProgressPhoto(clientId, photoType, label, filePath, file.name);
+
+      // Rotation: keep only the last MAX_MONTHLY_PHOTOS 'monthly' photos
+      if (photoType === 'monthly') {
+        const monthlyPhotos = existingPhotos
+          .filter((p: any) => p.photo_type === 'monthly')
+          .sort((a: any, b: any) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime());
+
+        const overflow = monthlyPhotos.length + 1 - MAX_MONTHLY_PHOTOS;
+        if (overflow > 0) {
+          const toRemove = monthlyPhotos.slice(0, overflow);
+          for (const old of toRemove) {
+            await clientService.deleteProgressPhoto(clientId, old.id);
+            if (bucket && old.file_path) await bucket.delete(old.file_path).catch(() => {});
+          }
+        }
+      }
+
       return c.json({ success: true, message: 'Progress photo uploaded', data: photo }, 201);
     } catch (err: any) {
       if (err.message === 'R2_NOT_CONFIGURED') {

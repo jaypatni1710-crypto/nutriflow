@@ -488,12 +488,12 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
-  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
+  async addProgressPhoto(clientId: string, photoType: string, label: string, filePath: string, originalFilename: string) {
     const res = await this.db.query(
-      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [clientId, viewType, filePath, originalFilename]
+      `INSERT INTO client_progress_photos (client_id, photo_type, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [clientId, photoType, label, filePath, originalFilename]
     );
-    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
+    await this.addTimelineEvent(clientId, 'photo_uploaded', `${label} progress photo uploaded`);
     return res.rows[0];
   }
 
