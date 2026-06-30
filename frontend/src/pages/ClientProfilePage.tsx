@@ -6,7 +6,7 @@ import { ClientFullProfile, ClientFormData } from '../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills } from '../components/clients/FormFields';
 import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, STRESS_LEVELS, ACTIVITY_LEVELS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
-import { StatusBadge, StatusSelector, GoalProgressBar, ProgressPhotosSection, TimelineSection } from '../components/clients/Enhancements';
+import { StatusBadge, StatusSelector, GoalProgressBar, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
 import { CommunicationLog } from '../components/clients/CommunicationLog';
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
@@ -150,7 +150,7 @@ export default function ClientProfilePage() {
   if (error && !profile) return <div className="text-center text-red-500 py-12 text-sm">{error}</div>;
   if (!profile) return null;
 
-  const { client: c, assessment: a, medical_history: m, progress_logs, notes, progress_photos, timeline, communications, tags } = profile;
+  const { client: c, assessment: a, medical_history: m, progress_logs, notes, progress_photos, lab_reports, timeline, communications, tags } = profile;
 
   return (
     <div>
@@ -251,13 +251,16 @@ export default function ClientProfilePage() {
       )}
 
       {tab === 'Medical History' && !editing && (
-        <Section title="Medical History">
-          <Row label="Conditions" value={m?.conditions?.join(', ')} />
-          {m?.conditions?.includes('Other') && <Row label="Specify Condition" value={m?.specify_condition} />}
-          <Row label="Current Medications" value={m?.current_medications} />
-          <Row label="Family Medical History" value={m?.family_medical_history} />
-          <Row label="Medical Notes" value={m?.medical_notes} />
-        </Section>
+        <>
+          <Section title="Medical History">
+            <Row label="Conditions" value={m?.conditions?.join(', ')} />
+            {m?.conditions?.includes('Other') && <Row label="Specify Condition" value={m?.specify_condition} />}
+            <Row label="Current Medications" value={m?.current_medications} />
+            <Row label="Family Medical History" value={m?.family_medical_history} />
+            <Row label="Medical Notes" value={m?.medical_notes} />
+          </Section>
+          <LabReportsSection clientId={id!} reports={lab_reports || []} onChanged={() => { setToast('Lab reports updated'); load(); }} />
+        </>
       )}
 
       {editing && (tab === 'Overview' || tab === 'Assessment' || tab === 'Medical History') && (

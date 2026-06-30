@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { clientApi } from '../../lib/client.api';
-import { ClientFoodFrequency, ClientProgressPhoto, ClientTimelineEvent } from '../../types/client.types';
-import { FOOD_FREQUENCY_OPTIONS, FOOD_FREQUENCY_ITEMS, STATUS_OPTIONS, STATUS_LABELS } from '../../lib/clientOptions';
+import { ClientFoodFrequency, ClientLabReport, ClientProgressPhoto, ClientTimelineEvent } from '../../types/client.types';
+import { FOOD_FREQUENCY_OPTIONS, FOOD_FREQUENCY_ITEMS, STATUS_OPTIONS, STATUS_LABELS, LAB_REPORT_TYPES } from '../../lib/clientOptions';
 import { Select } from './FormFields';
 import { compressImage } from '../../lib/imageCompress';
 
@@ -275,6 +275,151 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
           />
         )}
       </div>
+    </div>
+  );
+}
+
+// Feature: Lab Reports (PDF / JPG / PNG upload)
+function reportFileIcon(filename: string) {
+  return filename.toLowerCase().endsWith('.pdf') ? '📄' : '🖼️';
+}
+
+function LabReportRow({ clientId, report, onDelete }: { clientId: string; report: ClientLabReport; onDelete: () => void }) {
+  const [busy, setBusy] = useState(false);
+
+  const download = async () => {
+    setBusy(true);
+    try {
+      await clientApi.downloadLabReport(clientId, report.id, report.original_filename);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
+      <div className="flex items-center gap-3 min-w-0">
+        <span className="text-xl shrink-0">{reportFileIcon(report.original_filename)}</span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{report.report_type}</p>
+          <p className="text-xs text-slate-400 truncate">{report.original_filename} · {new Date(report.uploaded_at).toLocaleDateString()}</p>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <button
+          onClick={download}
+          disabled={busy}
+          title="Download"
+          aria-label="Download report"
+          className="p-1.5 rounded text-slate-500 hover:text-teal-600 hover:bg-white dark:hover:bg-slate-900 disabled:opacity-50"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+        </button>
+        <button
+          onClick={onDelete}
+          title="Delete"
+          aria-label="Delete report"
+          className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-white dark:hover:bg-slate-900"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+            <path d="M3 6h18" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const MAX_REPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB, must match backend
+const MAX_REPORT_COUNT = 2; // must match backend
+
+export function LabReportsSection({ clientId, reports, onChanged }: { clientId: string; reports: ClientLabReport[]; onChanged: () => void }) {
+  const [reportType, setReportType] = useState(LAB_REPORT_TYPES[0]);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState('');
+
+  const atLimit = reports.length >= MAX_REPORT_COUNT;
+
+  const handleFile = (f: File | null) => {
+    setError('');
+    if (f && f.size > MAX_REPORT_FILE_SIZE) {
+      setError('File size must be under 5MB');
+      setFile(null);
+      return;
+    }
+    setFile(f);
+  };
+
+  const upload = async () => {
+    if (!file || atLimit) return;
+    setUploading(true);
+    setError('');
+    try {
+      await clientApi.uploadLabReport(clientId, reportType, file);
+      setFile(null);
+      onChanged();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload report');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const remove = async (reportId: string) => {
+    await clientApi.deleteLabReport(clientId, reportId);
+    onChanged();
+  };
+
+  const sorted = [...reports].sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
+
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-4">
+      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Lab Reports & Documents</h4>
+      <p className="text-xs text-slate-400 mb-4">Upload prescriptions and lab reports (PDF, JPG, PNG · up to 5MB · max {MAX_REPORT_COUNT} files).</p>
+
+      {atLimit ? (
+        <p className="text-xs text-amber-600 dark:text-amber-400 mb-4">Maximum of {MAX_REPORT_COUNT} reports reached. Delete one below to upload another.</p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3 mb-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Report Type</label>
+            <Select options={LAB_REPORT_TYPES} value={reportType} onChange={(e) => setReportType(e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">File (PDF, JPG, PNG)</label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => handleFile(e.target.files?.[0] || null)}
+              className="text-sm text-slate-600 dark:text-slate-300"
+            />
+          </div>
+          <button onClick={upload} disabled={!file || uploading} className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+            {uploading ? 'Uploading...' : 'Upload'}
+          </button>
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-500 mb-3">{error}</p>}
+
+      {sorted.length === 0 ? (
+        <p className="text-sm text-slate-400">No lab reports uploaded yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {sorted.map((r) => (
+            <LabReportRow key={r.id} clientId={clientId} report={r} onDelete={() => remove(r.id)} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
