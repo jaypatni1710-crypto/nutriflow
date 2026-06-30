@@ -258,7 +258,7 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
         {monthly.map((p) => (
           <PhotoSlot
             key={p.id}
-            label={p.view_type}
+            label={`Month ${p.month_number}`}
             photo={p}
             clientId={clientId}
             uploading={false}
