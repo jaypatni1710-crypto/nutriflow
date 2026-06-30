@@ -188,6 +188,9 @@ export default function ClientProfilePage() {
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/dashboard/clients')} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">←</button>
           <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-teal-600 dark:text-teal-400 mb-0.5">
+              {editing ? 'Edit Detail' : 'View Detail'}
+            </p>
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
               {c.first_name} {c.last_name} <StatusBadge status={c.status} />
             </h2>
