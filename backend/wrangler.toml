@@ -32,3 +32,6 @@ preview_id = "08b3ca021cb64cf5a83c499c1f087b0c"
 [vars]
 SMTP_FROM = "noreply@nutriflow.app"
 
+[[r2_buckets]]
+binding = "FILES_BUCKET"
+bucket_name = "nutriflow-files"

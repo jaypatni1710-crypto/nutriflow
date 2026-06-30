@@ -79,11 +79,11 @@ export const clientApi = {
 
   listFoodFrequency: (id: string) => request<{ success: boolean; data: any[] }>(`/${id}/food-frequency`),
 
-  // Progress Photos
-  uploadProgressPhoto: (id: string, viewType: string, file: File) => {
+// Progress Photos
+  uploadProgressPhoto: (id: string, photoType: 'before' | 'monthly', file: File) => {
     const form = new FormData();
-    form.append('view_type', viewType);
-    form.append('photo', file); // fixed: Worker expects 'photo'
+    form.append('photo_type', photoType);
+    form.append('photo', file);
     return request<{ success: boolean; data: any }>(`/${id}/progress-photos`, { method: 'POST', body: form });
   },
 

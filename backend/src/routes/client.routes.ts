@@ -11,7 +11,8 @@ import { generateSecureToken } from '../utils/crypto';
 
 const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Other'];
 const ALLOWED_REPORT_MIME = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-const ALLOWED_PHOTO_VIEWS = ['Front', 'Side', 'Back'];
+const ALLOWED_PHOTO_TYPES = ['before', 'monthly'];
+const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5MB raw upload ceiling (client compresses before sending)
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/jpg', 'image/png'];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -335,27 +336,35 @@ export function createClientRouter(clientService: ClientService): Hono {
     }
   });
 
-  // --- Progress Photos (R2 file upload) ---
+// --- Progress Photos (Before + rolling 3-month, R2 file upload) ---
   router.post('/:id/progress-photos', async (c) => {
     try {
       const formData = await c.req.formData();
       const file = formData.get('photo') as File | null;
-      const viewType = formData.get('view_type') as string | null;
+      const photoType = formData.get('photo_type') as string | null;
 
       if (!file) return c.json({ success: false, message: 'No photo provided' }, 400);
-      if (!viewType || !ALLOWED_PHOTO_VIEWS.includes(viewType)) {
-        return c.json({ success: false, message: 'view_type must be Front, Side or Back' }, 400);
+      if (!photoType || !ALLOWED_PHOTO_TYPES.includes(photoType)) {
+        return c.json({ success: false, message: 'photo_type must be before or monthly' }, 400);
       }
       if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only JPG and PNG files allowed' }, 400);
       }
-      if (file.size > MAX_FILE_SIZE) {
-        return c.json({ success: false, message: 'File size must be under 10MB' }, 400);
+      if (file.size > MAX_PHOTO_SIZE) {
+        return c.json({ success: false, message: 'File size must be under 5MB' }, 400);
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
       const filePath = await uploadToR2(bucket, 'progress-photos', file);
-      const photo = await clientService.addProgressPhoto(c.req.param('id'), viewType, filePath, file.name);
+      const { photo, deleted } = await clientService.addProgressPhoto(
+        c.req.param('id'), photoType as 'before' | 'monthly', filePath, file.name, file.size
+      );
+
+      // Hard-delete any rolled-off / replaced photos from R2
+      if (bucket) {
+        await Promise.all(deleted.map((d) => bucket.delete(d.file_path).catch(() => {})));
+      }
+
       return c.json({ success: true, message: 'Progress photo uploaded', data: photo }, 201);
     } catch (err: any) {
       if (err.message === 'R2_NOT_CONFIGURED') {

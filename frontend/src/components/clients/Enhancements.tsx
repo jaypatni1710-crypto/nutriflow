@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { clientApi } from '../../lib/client.api';
 import { ClientFoodFrequency, ClientProgressPhoto, ClientTimelineEvent } from '../../types/client.types';
-import { FOOD_FREQUENCY_OPTIONS, FOOD_FREQUENCY_ITEMS, STATUS_OPTIONS, STATUS_LABELS, PHOTO_VIEW_TYPES } from '../../lib/clientOptions';
+import { FOOD_FREQUENCY_OPTIONS, FOOD_FREQUENCY_ITEMS, STATUS_OPTIONS, STATUS_LABELS } from '../../lib/clientOptions';
 import { Select } from './FormFields';
+import { compressImage } from '../../lib/imageCompress';
 
 const STATUS_COLORS: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400',
@@ -125,8 +126,8 @@ export function FoodFrequencySection({ clientId, history, onSaved }: { clientId:
   );
 }
 
-// Feature 2: Progress Photos
-function PhotoThumb({ clientId, photo, onDelete }: { clientId: string; photo: ClientProgressPhoto; onDelete: () => void }) {
+// Feature 2: Progress Photos (Before + rolling 3-month window)
+function PhotoThumb({ clientId, photo, label, onDelete }: { clientId: string; photo: ClientProgressPhoto; label: string; onDelete?: () => void }) {
   const [url, setUrl] = useState('');
   const [fullScreen, setFullScreen] = useState(false);
 
@@ -140,42 +141,74 @@ function PhotoThumb({ clientId, photo, onDelete }: { clientId: string; photo: Cl
     <>
       <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
         {url ? (
-          <img src={url} alt={photo.view_type} onClick={() => setFullScreen(true)} className="w-full h-40 object-cover cursor-pointer" />
+          <img src={url} alt={label} onClick={() => setFullScreen(true)} className="w-full h-40 object-cover cursor-pointer" />
         ) : (
           <div className="w-full h-40 flex items-center justify-center text-slate-400 text-xs">Loading...</div>
         )}
         <div className="p-2 text-xs">
-          <span className="font-semibold text-slate-900 dark:text-white">{photo.view_type} View</span>
+          <span className="font-semibold text-slate-900 dark:text-white">{label}</span>
           <span className="block text-slate-400">{new Date(photo.uploaded_at).toLocaleDateString()}</span>
         </div>
-        <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => clientApi.downloadProgressPhoto(clientId, photo.id, photo.original_filename)} className="px-2 py-1 text-[10px] font-semibold rounded bg-white/90 text-slate-700 hover:bg-white">DL</button>
-          <button onClick={onDelete} className="px-2 py-1 text-[10px] font-semibold rounded bg-red-500/90 text-white hover:bg-red-600">Del</button>
-        </div>
+        {onDelete && (
+          <div className="absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => clientApi.downloadProgressPhoto(clientId, photo.id, photo.original_filename)} className="px-2 py-1 text-[10px] font-semibold rounded bg-white/90 text-slate-700 hover:bg-white">DL</button>
+            <button onClick={onDelete} className="px-2 py-1 text-[10px] font-semibold rounded bg-red-500/90 text-white hover:bg-red-600">Del</button>
+          </div>
+        )}
       </div>
       {fullScreen && url && (
         <div onClick={() => setFullScreen(false)} className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 cursor-zoom-out">
-          <img src={url} alt={photo.view_type} className="max-h-full max-w-full rounded-lg" />
+          <img src={url} alt={label} className="max-h-full max-w-full rounded-lg" />
         </div>
       )}
     </>
   );
 }
 
-export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientId: string; photos: ClientProgressPhoto[]; onChanged: () => void }) {
-  const [viewType, setViewType] = useState(PHOTO_VIEW_TYPES[0]);
-  const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+function PhotoSlot({ label, photo, clientId, uploading, onUpload, onDelete }: {
+  label: string;
+  photo: ClientProgressPhoto | null;
+  clientId: string;
+  uploading: boolean;
+  onUpload?: (file: File) => void;
+  onDelete?: () => void;
+}) {
+  if (photo) {
+    return <PhotoThumb clientId={clientId} photo={photo} label={label} onDelete={onDelete} />;
+  }
+  return (
+    <label className="flex flex-col items-center justify-center h-40 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 text-slate-400 text-xs cursor-pointer hover:border-teal-400 hover:text-teal-500 transition-colors">
+      {uploading ? 'Uploading...' : (
+        <>
+          <span className="text-2xl mb-1">+</span>
+          <span>{label}</span>
+        </>
+      )}
+      <input
+        type="file"
+        accept=".jpg,.jpeg,.png"
+        className="hidden"
+        disabled={uploading}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f && onUpload) onUpload(f); }}
+      />
+    </label>
+  );
+}
 
-  const upload = async () => {
-    if (!file) return;
-    setUploading(true);
+export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientId: string; photos: ClientProgressPhoto[]; onChanged: () => void }) {
+  const [uploading, setUploading] = useState<'before' | 'monthly' | null>(null);
+
+  const before = photos.find((p) => p.photo_type === 'before') || null;
+  const monthly = photos.filter((p) => p.photo_type === 'monthly').sort((a, b) => (a.month_number ?? 0) - (b.month_number ?? 0));
+
+  const handleUpload = async (photoType: 'before' | 'monthly', file: File) => {
+    setUploading(photoType);
     try {
-      await clientApi.uploadProgressPhoto(clientId, viewType, file);
-      setFile(null);
+      const compressed = await compressImage(file);
+      await clientApi.uploadProgressPhoto(clientId, photoType, compressed);
       onChanged();
     } finally {
-      setUploading(false);
+      setUploading(null);
     }
   };
 
@@ -186,27 +219,38 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 mb-4">
-      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Progress Photos</h4>
-      <div className="flex flex-wrap items-end gap-3 mb-4">
-        <div>
-          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">View</label>
-          <Select options={PHOTO_VIEW_TYPES} value={viewType} onChange={(e) => setViewType(e.target.value)} />
-        </div>
-        <div>
-          <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Photo (JPG, JPEG, PNG)</label>
-          <input type="file" accept=".jpg,.jpeg,.png" onChange={(e) => setFile(e.target.files?.[0] || null)} className="text-sm text-slate-600 dark:text-slate-300" />
-        </div>
-        <button onClick={upload} disabled={!file || uploading} className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
-          {uploading ? 'Uploading...' : 'Upload'}
-        </button>
+      <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Progress Photos</h4>
+      <p className="text-xs text-slate-400 mb-4">1 Before photo (permanent) + last 3 monthly photos. Older monthly photos are removed automatically.</p>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <PhotoSlot
+          label="Before"
+          photo={before}
+          clientId={clientId}
+          uploading={uploading === 'before'}
+          onUpload={(f) => handleUpload('before', f)}
+          onDelete={before ? () => remove(before.id) : undefined}
+        />
+        {monthly.map((p) => (
+          <PhotoSlot
+            key={p.id}
+            label={p.view_type}
+            photo={p}
+            clientId={clientId}
+            uploading={false}
+            onDelete={() => remove(p.id)}
+          />
+        ))}
+        {monthly.length < 3 && (
+          <PhotoSlot
+            label={`Month ${monthly.length + 1}`}
+            photo={null}
+            clientId={clientId}
+            uploading={uploading === 'monthly'}
+            onUpload={(f) => handleUpload('monthly', f)}
+          />
+        )}
       </div>
-      {photos.length === 0 ? (
-        <p className="text-sm text-slate-400">No progress photos uploaded yet.</p>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {photos.map((p) => <PhotoThumb key={p.id} clientId={clientId} photo={p} onDelete={() => remove(p.id)} />)}
-        </div>
-      )}
     </div>
   );
 }

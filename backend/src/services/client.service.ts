@@ -480,17 +480,64 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
-  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
-    const res = await this.db.query(
-      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [clientId, viewType, filePath, originalFilename]
+  // photoType: 'before' (1 permanent slot) or 'monthly' (rolling window of last 3)
+  // Returns { photo, deleted } where `deleted` are old rows that must also be purged from R2.
+  async addProgressPhoto(clientId: string, photoType: 'before' | 'monthly', filePath: string, originalFilename: string, fileSizeBytes: number) {
+    const deleted: { id: string; file_path: string }[] = [];
+
+    if (photoType === 'before') {
+      // Replace any existing "before" photo for this client
+      const old = await this.db.query(
+        `DELETE FROM client_progress_photos WHERE client_id = $1 AND photo_type = 'before' RETURNING id, file_path`,
+        [clientId]
+      );
+      deleted.push(...old.rows);
+
+      const res = await this.db.query(
+        `INSERT INTO client_progress_photos (client_id, photo_type, view_type, file_path, original_filename, file_size_bytes)
+         VALUES ($1,'before','Before',$2,$3,$4) RETURNING *`,
+        [clientId, filePath, originalFilename, fileSizeBytes]
+      );
+      await this.addTimelineEvent(clientId, 'photo_uploaded', 'Before photo uploaded');
+      return { photo: res.rows[0], deleted };
+    }
+
+    // monthly: next sequential month number for this client
+    const seq = await this.db.query(
+      `SELECT COALESCE(MAX(month_number), 0) + 1 AS next FROM client_progress_photos WHERE client_id = $1 AND photo_type = 'monthly'`,
+      [clientId]
     );
-    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
-    return res.rows[0];
+    const nextMonth = seq.rows[0].next;
+
+    const res = await this.db.query(
+      `INSERT INTO client_progress_photos (client_id, photo_type, view_type, month_number, file_path, original_filename, file_size_bytes)
+       VALUES ($1,'monthly',$2,$3,$4,$5,$6) RETURNING *`,
+      [clientId, `Month ${nextMonth}`, nextMonth, filePath, originalFilename, fileSizeBytes]
+    );
+
+    // Roll the window: keep only the 3 most recent monthly photos, hard-delete the rest
+    const old = await this.db.query(
+      `DELETE FROM client_progress_photos
+       WHERE client_id = $1 AND photo_type = 'monthly'
+         AND id NOT IN (
+           SELECT id FROM client_progress_photos
+           WHERE client_id = $1 AND photo_type = 'monthly'
+           ORDER BY month_number DESC LIMIT 3
+         )
+       RETURNING id, file_path`,
+      [clientId]
+    );
+    deleted.push(...old.rows);
+
+    await this.addTimelineEvent(clientId, 'photo_uploaded', `Month ${nextMonth} progress photo uploaded`);
+    return { photo: res.rows[0], deleted };
   }
 
   async listProgressPhotos(clientId: string) {
-    const res = await this.db.query(`SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY uploaded_at DESC`, [clientId]);
+    const res = await this.db.query(
+      `SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY (photo_type = 'before') DESC, month_number ASC NULLS LAST`,
+      [clientId]
+    );
     return res.rows;
   }
 
