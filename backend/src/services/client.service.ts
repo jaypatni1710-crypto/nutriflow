@@ -94,7 +94,7 @@ export class ClientService {
     params.push(limit, offset);
     const dataRes = await this.db.query(
       `SELECT c.id, c.first_name, c.last_name, c.phone_number, c.date_of_birth, c.primary_goal, c.status, c.is_archived, c.archived_at, c.updated_at,
-              a.current_weight_kg, a.bmi, a.bmi_category,
+              a.current_weight_kg, a.bmi, a.bmi_category, a.diet_type,
               COALESCE((SELECT array_agg(t.tag ORDER BY t.tag) FROM client_tags t WHERE t.client_id = c.id), '{}') AS tags
        FROM clients c
        LEFT JOIN client_assessments a ON a.client_id = c.id
@@ -222,6 +222,7 @@ export class ClientService {
       date_of_birth: input.date_of_birth, occupation: input.occupation, city: input.city,
       address: input.address, primary_goal: input.primary_goal, specify_goal: input.specify_goal,
       secondary_goals: input.secondary_goals, target_weight: input.target_weight, target_date: input.target_date,
+      status: (input as any).status,
     };
     const setClauses: string[] = [];
     const params: any[] = [];
@@ -233,6 +234,9 @@ export class ClientService {
       await this.db.query(`UPDATE clients SET ${setClauses.join(', ')} WHERE id = $${params.length}`, params);
       if (input.target_weight !== undefined || input.target_date !== undefined) {
         await this.addTimelineEvent(clientId, 'goal_updated', 'Goal updated');
+      }
+      if ((input as any).status !== undefined) {
+        await this.addTimelineEvent(clientId, 'status_changed', `Status changed to ${String((input as any).status).replace('_', ' ')}`);
       }
     }
 

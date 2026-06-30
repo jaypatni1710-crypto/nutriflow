@@ -5,6 +5,7 @@ export interface ClientListItem {
   phone_number: string;
   date_of_birth: string | null;
   primary_goal: string | null;
+  diet_type: string | null;
   status: 'active' | 'inactive' | 'completed' | 'on_hold';
   is_archived: boolean;
   archived_at: string | null;
@@ -207,6 +208,7 @@ export interface ClientFormData {
   secondary_goals?: string[];
   target_weight?: number | string;
   target_date?: string;
+  status?: 'active' | 'inactive' | 'completed' | 'on_hold';
 
   height_cm?: number | string;
   current_weight_kg?: number | string;

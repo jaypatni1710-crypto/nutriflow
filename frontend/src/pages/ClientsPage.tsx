@@ -59,6 +59,20 @@ const TrashIcon = () => (
     <path d="M3 6h18" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
   </svg>
 );
+// Power icon used for the Active/Inactive toggle action
+const PowerIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M18.36 6.64a9 9 0 1 1-12.73 0" /><line x1="12" y1="2" x2="12" y2="12" />
+  </svg>
+);
+
+function StatusBadge({ status }: { status: string }) {
+  const isActive = status === 'active';
+  const color = isActive
+    ? 'text-teal-600 bg-teal-50 border-teal-200'
+    : 'text-slate-500 bg-slate-50 border-slate-200';
+  return <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${color}`}>{STATUS_LABELS[status] || status}</span>;
+}
 
 export default function ClientsPage() {
   const navigate = useNavigate();
@@ -77,6 +91,8 @@ export default function ClientsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [toast, setToast] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<ClientListItem | null>(null);
+  const [statusTarget, setStatusTarget] = useState<ClientListItem | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   useEffect(() => {
     clientApi.listAllTags().then((r) => setAllTags(r.data)).catch(() => {});
@@ -110,6 +126,22 @@ export default function ClientsPage() {
     } catch (err: any) {
       setError(err?.message || 'Failed to delete client');
       setDeleteTarget(null);
+    }
+  };
+
+  const handleChangeStatus = async (newStatus: string) => {
+    if (!statusTarget) return;
+    const c = statusTarget;
+    setTogglingId(c.id);
+    try {
+      await clientApi.updateStatus(c.id, newStatus);
+      setToast(`Client marked ${STATUS_LABELS[newStatus] || newStatus}`);
+      setStatusTarget(null);
+      load();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update client status');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -174,6 +206,9 @@ export default function ClientsPage() {
                   <th className="px-4 py-3">Phone Number</th>
                   <th className="px-4 py-3">Age</th>
                   <th className="px-4 py-3">BMI Status</th>
+                  <th className="px-4 py-3">Food Preference</th>
+                  <th className="px-4 py-3">Goal</th>
+                  <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -184,6 +219,9 @@ export default function ClientsPage() {
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.phone_number}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{calcAge(c.date_of_birth)}</td>
                     <td className="px-4 py-3"><BmiStatusBadge category={c.bmi_category} /></td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.diet_type || '—'}</td>
+                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.primary_goal || '—'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={c.status} /></td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <IconButton title="View" color="text-teal-600" onClick={() => navigate(`/dashboard/clients/${c.id}`)}>
@@ -191,6 +229,13 @@ export default function ClientsPage() {
                         </IconButton>
                         <IconButton title="Edit" color="text-slate-500" onClick={() => navigate(`/dashboard/clients/${c.id}?edit=1`)}>
                           <PencilIcon />
+                        </IconButton>
+                        <IconButton
+                          title="Change Status"
+                          color={c.status === 'active' ? 'text-teal-600' : 'text-amber-500'}
+                          onClick={() => setStatusTarget(c)}
+                        >
+                          <PowerIcon />
                         </IconButton>
                         <IconButton title="Delete" color="text-red-500" onClick={() => setDeleteTarget(c)}>
                           <TrashIcon />
@@ -229,6 +274,32 @@ export default function ClientsPage() {
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
               <button onClick={handleDelete} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {statusTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-sm p-6 shadow-2xl">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1">Change Status</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+              {statusTarget.first_name} {statusTarget.last_name} is currently <span className="font-semibold">{STATUS_LABELS[statusTarget.status] || statusTarget.status}</span>. Choose a new status:
+            </p>
+            <div className="space-y-2">
+              {STATUS_OPTIONS.filter((s) => s !== statusTarget.status).map((s) => (
+                <button
+                  key={s}
+                  disabled={togglingId === statusTarget.id}
+                  onClick={() => handleChangeStatus(s)}
+                  className="w-full text-left px-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-teal-50 dark:hover:bg-teal-500/10 hover:border-teal-300 disabled:opacity-50 transition-colors"
+                >
+                  {STATUS_LABELS[s] || s}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end mt-4">
+              <button onClick={() => setStatusTarget(null)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
             </div>
           </div>
         </div>
