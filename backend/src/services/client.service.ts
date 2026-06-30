@@ -463,14 +463,6 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
-  async countLabReports(clientId: string): Promise<number> {
-    const res = await this.db.query(
-      `SELECT COUNT(*)::int AS count FROM client_lab_reports WHERE client_id = $1`,
-      [clientId]
-    );
-    return res.rows[0]?.count || 0;
-  }
-
   async addLabReport(clientId: string, reportType: string, filePath: string, originalFilename: string, uploadedBy: string) {
     const res = await this.db.query(
       `INSERT INTO client_lab_reports (client_id, report_type, file_path, original_filename, uploaded_by) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
@@ -478,6 +470,14 @@ export class ClientService {
     );
     await this.addTimelineEvent(clientId, 'report_uploaded', `${reportType} report uploaded`);
     return res.rows[0];
+  }
+
+  async getLabReportById(clientId: string, reportId: string) {
+    const res = await this.db.query(
+      `SELECT * FROM client_lab_reports WHERE id = $1 AND client_id = $2`,
+      [reportId, clientId]
+    );
+    return res.rows[0] || null;
   }
 
   async deleteLabReport(clientId: string, reportId: string) {
@@ -488,18 +488,26 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
-  async addProgressPhoto(clientId: string, photoType: string, label: string, filePath: string, originalFilename: string) {
+  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
     const res = await this.db.query(
-      `INSERT INTO client_progress_photos (client_id, photo_type, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [clientId, photoType, label, filePath, originalFilename]
+      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [clientId, viewType, filePath, originalFilename]
     );
-    await this.addTimelineEvent(clientId, 'photo_uploaded', `${label} progress photo uploaded`);
+    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
     return res.rows[0];
   }
 
   async listProgressPhotos(clientId: string) {
     const res = await this.db.query(`SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY uploaded_at DESC`, [clientId]);
     return res.rows;
+  }
+
+  async getProgressPhotoById(clientId: string, photoId: string) {
+    const res = await this.db.query(
+      `SELECT * FROM client_progress_photos WHERE id = $1 AND client_id = $2`,
+      [photoId, clientId]
+    );
+    return res.rows[0] || null;
   }
 
   async deleteProgressPhoto(clientId: string, photoId: string) {

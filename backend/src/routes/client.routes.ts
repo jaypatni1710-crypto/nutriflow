@@ -9,14 +9,11 @@ import {
 } from '../types/client.validation';
 import { generateSecureToken } from '../utils/crypto';
 
-const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Family Medical History Report', 'Other'];
+const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B12', 'Lipid Profile', 'Prescription', 'Other'];
 const ALLOWED_REPORT_MIME = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
-const ALLOWED_PHOTO_TYPES = ['before', 'monthly'];
-const MAX_MONTHLY_PHOTOS = 3;
+const ALLOWED_PHOTO_VIEWS = ['Front', 'Side', 'Back'];
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/jpg', 'image/png'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB (progress photos)
-const MAX_REPORT_FILE_SIZE = 5 * 1024 * 1024; // 5MB (lab reports)
-const MAX_REPORT_COUNT = 2; // max lab reports per client
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Helper: upload a file to Cloudflare R2 and return its stored path
 // NOTE: Add an R2 binding `FILES_BUCKET` in wrangler.toml when you're ready for file uploads
@@ -308,12 +305,8 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       if (!ALLOWED_REPORT_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only PDF, JPG and PNG files allowed' }, 400);
       }
-      if (file.size > MAX_REPORT_FILE_SIZE) {
-        return c.json({ success: false, message: 'File size must be under 5MB' }, 400);
-      }
-      const existingCount = await clientService.countLabReports(c.req.param('id'));
-      if (existingCount >= MAX_REPORT_COUNT) {
-        return c.json({ success: false, message: `Maximum of ${MAX_REPORT_COUNT} lab reports allowed. Delete one before uploading another.` }, 400);
+      if (file.size > MAX_FILE_SIZE) {
+        return c.json({ success: false, message: 'File size must be under 10MB' }, 400);
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
@@ -326,6 +319,26 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       }
       console.error(err);
       return c.json({ success: false, message: 'Failed to upload lab report' }, 500);
+    }
+  });
+
+  router.get('/:id/lab-reports/:reportId/download', async (c) => {
+    try {
+      const report = await clientService.getLabReportById(c.req.param('id'), c.req.param('reportId'));
+      if (!report) return c.json({ success: false, message: 'Report not found' }, 404);
+
+      const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+      if (!bucket) return c.json({ success: false, message: 'File storage not configured.' }, 501);
+
+      const object = await bucket.get(report.file_path);
+      if (!object) return c.json({ success: false, message: 'File not found in storage' }, 404);
+
+      c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+      c.header('Content-Disposition', `attachment; filename="${report.original_filename}"`);
+      return c.body(object.body as any);
+    } catch (err) {
+      console.error(err);
+      return c.json({ success: false, message: 'Failed to download report' }, 500);
     }
   });
 
@@ -343,18 +356,15 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   });
 
   // --- Progress Photos (R2 file upload) ---
-  // Model: one permanent 'before' photo + a rotating window of up to MAX_MONTHLY_PHOTOS 'monthly' photos.
-  // 'view_type' column is repurposed as a display label (e.g. "Before", "Month 2").
   router.post('/:id/progress-photos', async (c) => {
     try {
-      const clientId = c.req.param('id');
       const formData = await c.req.formData();
       const file = formData.get('photo') as File | null;
-      const photoType = formData.get('photo_type') as string | null;
+      const viewType = formData.get('view_type') as string | null;
 
       if (!file) return c.json({ success: false, message: 'No photo provided' }, 400);
-      if (!photoType || !ALLOWED_PHOTO_TYPES.includes(photoType)) {
-        return c.json({ success: false, message: 'photo_type must be before or monthly' }, 400);
+      if (!viewType || !ALLOWED_PHOTO_VIEWS.includes(viewType)) {
+        return c.json({ success: false, message: 'view_type must be Front, Side or Back' }, 400);
       }
       if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only JPG and PNG files allowed' }, 400);
@@ -364,42 +374,8 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
-      const existingPhotos = await clientService.listProgressPhotos(clientId);
-
-      // "before" photo is permanent and unique — block a second upload
-      if (photoType === 'before') {
-        const existingBefore = existingPhotos.find((p: any) => p.photo_type === 'before');
-        if (existingBefore) {
-          return c.json({ success: false, message: 'A before photo already exists for this client. Delete it first to replace.' }, 400);
-        }
-      }
-
-      // Compute display label
-      let label = 'Before';
-      if (photoType === 'monthly') {
-        const monthlyCount = existingPhotos.filter((p: any) => p.photo_type === 'monthly').length;
-        label = `Month ${monthlyCount + 1}`;
-      }
-
       const filePath = await uploadToR2(bucket, 'progress-photos', file);
-      const photo = await clientService.addProgressPhoto(clientId, photoType, label, filePath, file.name);
-
-      // Rotation: keep only the last MAX_MONTHLY_PHOTOS 'monthly' photos
-      if (photoType === 'monthly') {
-        const monthlyPhotos = existingPhotos
-          .filter((p: any) => p.photo_type === 'monthly')
-          .sort((a: any, b: any) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime());
-
-        const overflow = monthlyPhotos.length + 1 - MAX_MONTHLY_PHOTOS;
-        if (overflow > 0) {
-          const toRemove = monthlyPhotos.slice(0, overflow);
-          for (const old of toRemove) {
-            await clientService.deleteProgressPhoto(clientId, old.id);
-            if (bucket && old.file_path) await bucket.delete(old.file_path).catch(() => {});
-          }
-        }
-      }
-
+      const photo = await clientService.addProgressPhoto(c.req.param('id'), viewType, filePath, file.name);
       return c.json({ success: true, message: 'Progress photo uploaded', data: photo }, 201);
     } catch (err: any) {
       if (err.message === 'R2_NOT_CONFIGURED') {
@@ -416,6 +392,27 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       return c.json({ success: true, data: photos });
     } catch (err) {
       return c.json({ success: false, message: 'Failed to fetch photos' }, 500);
+    }
+  });
+
+  router.get('/:id/progress-photos/:photoId/file', async (c) => {
+    try {
+      const photo = await clientService.getProgressPhotoById(c.req.param('id'), c.req.param('photoId'));
+      if (!photo) return c.json({ success: false, message: 'Photo not found' }, 404);
+
+      const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+      if (!bucket) return c.json({ success: false, message: 'File storage not configured.' }, 501);
+
+      const object = await bucket.get(photo.file_path);
+      if (!object) return c.json({ success: false, message: 'File not found in storage' }, 404);
+
+      c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
+      // Inline (not attachment) so it can be used directly as an <img src>
+      c.header('Content-Disposition', `inline; filename="${photo.original_filename}"`);
+      return c.body(object.body as any);
+    } catch (err) {
+      console.error(err);
+      return c.json({ success: false, message: 'Failed to fetch photo' }, 500);
     }
   });
 
