@@ -46,7 +46,8 @@ export interface ClientFoodFrequency {
 export interface ClientProgressPhoto {
   id: string;
   client_id: string;
-  view_type: 'Front' | 'Side' | 'Back';
+  photo_type: 'before' | 'monthly';
+  month_number: number | null;
   file_path: string;
   original_filename: string;
   uploaded_at: string;

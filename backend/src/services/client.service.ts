@@ -488,18 +488,35 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
-  async addProgressPhoto(clientId: string, viewType: string, filePath: string, originalFilename: string) {
+  async addProgressPhoto(clientId: string, photoType: 'before' | 'monthly', monthNumber: number | null, filePath: string, originalFilename: string, fileSizeBytes: number) {
     const res = await this.db.query(
-      `INSERT INTO client_progress_photos (client_id, view_type, file_path, original_filename) VALUES ($1,$2,$3,$4) RETURNING *`,
-      [clientId, viewType, filePath, originalFilename]
+      `INSERT INTO client_progress_photos (client_id, photo_type, month_number, file_path, original_filename, file_size_bytes) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [clientId, photoType, monthNumber, filePath, originalFilename, fileSizeBytes]
     );
-    await this.addTimelineEvent(clientId, 'photo_uploaded', `${viewType} progress photo uploaded`);
+    const label = photoType === 'before' ? 'Before' : `Month ${monthNumber}`;
+    await this.addTimelineEvent(clientId, 'photo_uploaded', `${label} progress photo uploaded`);
     return res.rows[0];
   }
 
   async listProgressPhotos(clientId: string) {
     const res = await this.db.query(`SELECT * FROM client_progress_photos WHERE client_id = $1 ORDER BY uploaded_at DESC`, [clientId]);
     return res.rows;
+  }
+
+  async countMonthlyPhotos(clientId: string) {
+    const res = await this.db.query(
+      `SELECT COUNT(*)::int AS count FROM client_progress_photos WHERE client_id = $1 AND photo_type = 'monthly'`,
+      [clientId]
+    );
+    return res.rows[0].count as number;
+  }
+
+  async getOldestMonthlyPhoto(clientId: string) {
+    const res = await this.db.query(
+      `SELECT * FROM client_progress_photos WHERE client_id = $1 AND photo_type = 'monthly' ORDER BY month_number ASC LIMIT 1`,
+      [clientId]
+    );
+    return res.rows[0] || null;
   }
 
   async getProgressPhotoById(clientId: string, photoId: string) {
