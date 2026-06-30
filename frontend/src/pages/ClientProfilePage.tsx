@@ -81,21 +81,17 @@ export default function ClientProfilePage() {
     const { client: c, assessment: a, medical_history: m } = profile;
     setForm({
       first_name: c.first_name, last_name: c.last_name, phone_number: c.phone_number,
-      whatsapp_number: c.whatsapp_number || '', email: c.email || '', gender: c.gender || '',
-      date_of_birth: c.date_of_birth || '', occupation: c.occupation || '', city: c.city || '', address: c.address || '',
-      primary_goal: c.primary_goal || '', specify_goal: c.specify_goal || '', secondary_goals: c.secondary_goals || [],
-      target_weight: c.target_weight ?? '', target_date: c.target_date || '',
-      height_cm: a?.height_cm ?? '', current_weight_kg: a?.current_weight_kg ?? '', goal_weight_kg: a?.goal_weight_kg ?? '',
-      waist_cm: a?.waist_cm ?? '', hip_cm: a?.hip_cm ?? '', chest_cm: a?.chest_cm ?? '', neck_cm: a?.neck_cm ?? '',
+      email: c.email || '', gender: c.gender || '',
+      date_of_birth: c.date_of_birth || '', occupation: c.occupation || '', city: c.city || '',
+      primary_goal: c.primary_goal || '', specify_goal: c.specify_goal || '',
+      height_cm: a?.height_cm ?? '', current_weight_kg: a?.current_weight_kg ?? '',
       conditions: m?.conditions || [], specify_condition: m?.specify_condition || '', current_medications: m?.current_medications || '',
       family_medical_history: m?.family_medical_history || '', medical_notes: m?.medical_notes || '',
       diet_type: a?.diet_type || '', specify_diet_type: a?.specify_diet_type || '', food_preferences: a?.food_preferences || '',
-      disliked_foods: a?.disliked_foods || '', food_allergies: a?.food_allergies || '', food_intolerances: a?.food_intolerances || '',
+      disliked_foods: a?.disliked_foods || '',
       wake_up_time: a?.wake_up_time || '', sleep_time: a?.sleep_time || '', water_intake_per_day: a?.water_intake_per_day || '',
-      working_hours: a?.working_hours || '', stress_level: a?.stress_level || '', activity_level: a?.activity_level || '',
-      exercise_routine: a?.exercise_routine || '', lifestyle_notes: a?.lifestyle_notes || '',
-      recall_breakfast: a?.recall_breakfast || '', recall_lunch: a?.recall_lunch || '', recall_dinner: a?.recall_dinner || '',
-      recall_snacks: a?.recall_snacks || '', recall_tea_coffee: a?.recall_tea_coffee || '', recall_water: a?.recall_water || '',
+      stress_level: a?.stress_level || '', activity_level: a?.activity_level || '',
+      lifestyle_notes: a?.lifestyle_notes || '',
     });
     setEditing(true);
   };
@@ -107,7 +103,7 @@ export default function ClientProfilePage() {
     setSaving(true);
     try {
       const payload: any = { ...form };
-      ['target_weight', 'height_cm', 'current_weight_kg', 'goal_weight_kg', 'waist_cm', 'hip_cm', 'chest_cm', 'neck_cm'].forEach((k) => {
+      ['height_cm', 'current_weight_kg'].forEach((k) => {
         if (payload[k] === '') delete payload[k];
       });
       await clientApi.update(id, payload);
@@ -162,20 +158,6 @@ export default function ClientProfilePage() {
     load();
   };
 
-  const handleArchive = async () => {
-    if (!id) return;
-    await clientApi.archiveClient(id);
-    setToast('Client archived');
-    load();
-  };
-
-  const handleRestore = async () => {
-    if (!id) return;
-    await clientApi.restoreClient(id);
-    setToast('Client restored');
-    load();
-  };
-
   if (loading) return <div className="text-center text-slate-400 py-12 text-sm">Loading client profile...</div>;
   if (error && !profile) return <div className="text-center text-red-500 py-12 text-sm">{error}</div>;
   if (!profile) return null;
@@ -199,11 +181,6 @@ export default function ClientProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusSelector status={c.status} onChange={handleStatusChange} />
-          {!c.is_archived ? (
-            <button onClick={handleArchive} className="px-3 py-2 rounded-lg text-xs font-semibold text-amber-600 border border-amber-200 dark:border-amber-700 hover:bg-amber-50 dark:hover:bg-amber-500/10">Archive</button>
-          ) : (
-            <button onClick={handleRestore} className="px-3 py-2 rounded-lg text-xs font-semibold text-emerald-600 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-500/10">Restore</button>
-          )}
         {!editing && tab !== 'Lab Reports' && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && tab !== 'Communication' && (
           <button onClick={startEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Edit</button>
         )}
@@ -238,19 +215,14 @@ export default function ClientProfilePage() {
         <>
           <Section title="Personal Details">
             <Row label="Email" value={c.email} />
-            <Row label="WhatsApp" value={c.whatsapp_number} />
             <Row label="Gender" value={c.gender} />
             <Row label="Date of Birth" value={c.date_of_birth} />
             <Row label="Occupation" value={c.occupation} />
             <Row label="City" value={c.city} />
-            <Row label="Address" value={c.address} />
           </Section>
           <Section title="Goal Information">
             <Row label="Goal" value={c.primary_goal} />
             {c.primary_goal === 'Other' && <Row label="Specify Goal" value={c.specify_goal} />}
-            <Row label="Secondary Goals" value={c.secondary_goals?.join(', ')} />
-            <Row label="Target Weight" value={c.target_weight ? `${c.target_weight} kg` : null} />
-            <Row label="Target Date" value={c.target_date} />
             <div className="mt-3">
               <GoalProgressBar start={progress_logs[0]?.weight_kg ?? null} current={a?.current_weight_kg ?? null} goal={c.target_weight ?? null} />
             </div>
@@ -272,36 +244,20 @@ export default function ClientProfilePage() {
           <Section title="Anthropometric Data">
             <Row label="Height" value={a?.height_cm ? `${a.height_cm} cm` : null} />
             <Row label="Current Weight" value={a?.current_weight_kg ? `${a.current_weight_kg} kg` : null} />
-            <Row label="Goal Weight" value={a?.goal_weight_kg ? `${a.goal_weight_kg} kg` : null} />
-            <Row label="Waist" value={a?.waist_cm ? `${a.waist_cm} cm` : null} />
-            <Row label="Hip" value={a?.hip_cm ? `${a.hip_cm} cm` : null} />
-            <Row label="Chest" value={a?.chest_cm ? `${a.chest_cm} cm` : null} />
-            <Row label="Neck" value={a?.neck_cm ? `${a.neck_cm} cm` : null} />
           </Section>
           <Section title="Nutrition Assessment">
             <Row label="Food Preference" value={a?.diet_type} />
             {a?.diet_type === 'Other' && <Row label="Specify Food Preference" value={a?.specify_diet_type} />}
             <Row label="Client Likes to Eat" value={a?.food_preferences} />
             <Row label="Client Doesn't Like to Eat" value={a?.disliked_foods} />
-            <Row label="Food Allergies" value={a?.food_allergies} />
-            <Row label="Food Intolerances" value={a?.food_intolerances} />
           </Section>
           <Section title="Lifestyle Assessment">
             <Row label="Wake Up Time" value={a?.wake_up_time} />
             <Row label="Sleep Time" value={a?.sleep_time} />
             <Row label="Water Intake/Day" value={a?.water_intake_per_day} />
-            <Row label="Working Hours" value={a?.working_hours} />
             <Row label="Stress Level" value={a?.stress_level} />
             <Row label="Activity Level" value={a?.activity_level} />
-            <Row label="Exercise Routine" value={a?.exercise_routine} />
-          </Section>
-          <Section title="24 Hour Recall">
-            <Row label="Breakfast" value={a?.recall_breakfast} />
-            <Row label="Lunch" value={a?.recall_lunch} />
-            <Row label="Dinner" value={a?.recall_dinner} />
-            <Row label="Snacks" value={a?.recall_snacks} />
-            <Row label="Tea/Coffee" value={a?.recall_tea_coffee} />
-            <Row label="Water Intake" value={a?.recall_water} />
+            <Row label="Notes" value={a?.lifestyle_notes} />
           </Section>
           <FoodFrequencySection clientId={id!} history={food_frequency} onSaved={() => { setToast('Food frequency saved'); load(); }} />
         </>
@@ -324,27 +280,24 @@ export default function ClientProfilePage() {
               <Field label="First Name"><TextInput value={form.first_name} onChange={(e) => set({ first_name: e.target.value })} /></Field>
               <Field label="Last Name"><TextInput value={form.last_name} onChange={(e) => set({ last_name: e.target.value })} /></Field>
               <Field label="Phone Number"><TextInput value={form.phone_number} onChange={(e) => set({ phone_number: e.target.value })} /></Field>
-              <Field label="WhatsApp"><TextInput value={form.whatsapp_number || ''} onChange={(e) => set({ whatsapp_number: e.target.value })} /></Field>
               <Field label="Email"><TextInput value={form.email || ''} onChange={(e) => set({ email: e.target.value })} /></Field>
               <Field label="Gender"><Select options={['Male', 'Female', 'Other']} value={form.gender || ''} onChange={(e) => set({ gender: e.target.value })} /></Field>
               <Field label="Date of Birth"><TextInput type="date" value={form.date_of_birth || ''} onChange={(e) => set({ date_of_birth: e.target.value })} /></Field>
               <Field label="Occupation"><TextInput value={form.occupation || ''} onChange={(e) => set({ occupation: e.target.value })} /></Field>
               <Field label="City"><TextInput value={form.city || ''} onChange={(e) => set({ city: e.target.value })} /></Field>
-              <Field label="Address" className="col-span-2"><TextArea rows={2} value={form.address || ''} onChange={(e) => set({ address: e.target.value })} /></Field>
               <Field label="Primary Goal"><Select options={GOAL_OPTIONS} value={form.primary_goal || ''} onChange={(e) => set({ primary_goal: e.target.value })} /></Field>
               {form.primary_goal === 'Other' && (
                 <Field label="Specify Goal"><TextInput value={form.specify_goal || ''} onChange={(e) => set({ specify_goal: e.target.value })} /></Field>
               )}
-              <Field label="Target Weight"><TextInput type="number" value={form.target_weight ?? ''} onChange={(e) => set({ target_weight: e.target.value })} /></Field>
-              <Field label="Secondary Goals" className="col-span-2"><MultiSelectPills options={GOAL_OPTIONS.filter((g) => g !== 'Other')} selected={form.secondary_goals || []} onChange={(v) => set({ secondary_goals: v })} /></Field>
             </div>
           </Section>
           <Section title="Anthropometric & Nutrition">
             <div className="grid grid-cols-2 gap-4">
               <Field label="Height (cm)"><TextInput type="number" value={form.height_cm ?? ''} onChange={(e) => set({ height_cm: e.target.value })} /></Field>
               <Field label="Current Weight (kg)"><TextInput type="number" value={form.current_weight_kg ?? ''} onChange={(e) => set({ current_weight_kg: e.target.value })} /></Field>
-              <Field label="Goal Weight (kg)"><TextInput type="number" value={form.goal_weight_kg ?? ''} onChange={(e) => set({ goal_weight_kg: e.target.value })} /></Field>
-              <Field label="Waist (cm)"><TextInput type="number" value={form.waist_cm ?? ''} onChange={(e) => set({ waist_cm: e.target.value })} /></Field>
+              <Field label="Wake Up Time"><TextInput type="time" value={form.wake_up_time || ''} onChange={(e) => set({ wake_up_time: e.target.value })} /></Field>
+              <Field label="Sleep Time"><TextInput type="time" value={form.sleep_time || ''} onChange={(e) => set({ sleep_time: e.target.value })} /></Field>
+              <Field label="Water Intake Per Day"><TextInput value={form.water_intake_per_day || ''} onChange={(e) => set({ water_intake_per_day: e.target.value })} /></Field>
               <Field label="Food Preference"><Select options={DIET_TYPES} value={form.diet_type || ''} onChange={(e) => set({ diet_type: e.target.value })} /></Field>
               {form.diet_type === 'Other' && (
                 <Field label="Specify Food Preference"><TextInput value={form.specify_diet_type || ''} onChange={(e) => set({ specify_diet_type: e.target.value })} /></Field>
@@ -353,12 +306,15 @@ export default function ClientProfilePage() {
               <Field label="Stress Level"><Select options={STRESS_LEVELS} value={form.stress_level || ''} onChange={(e) => set({ stress_level: e.target.value })} /></Field>
               <Field label="Client Likes to Eat"><TextInput value={form.food_preferences || ''} onChange={(e) => set({ food_preferences: e.target.value })} /></Field>
               <Field label="Client Doesn't Like to Eat"><TextInput value={form.disliked_foods || ''} onChange={(e) => set({ disliked_foods: e.target.value })} /></Field>
-              <Field label="Food Allergies"><TextInput value={form.food_allergies || ''} onChange={(e) => set({ food_allergies: e.target.value })} /></Field>
+              <Field label="Notes" className="col-span-2"><TextArea rows={2} value={form.lifestyle_notes || ''} onChange={(e) => set({ lifestyle_notes: e.target.value })} /></Field>
             </div>
           </Section>
           <Section title="Medical History">
             <div className="space-y-4">
               <Field label="Conditions"><MultiSelectPills options={MEDICAL_CONDITIONS} selected={form.conditions || []} onChange={(v) => set({ conditions: v })} /></Field>
+              {(form.conditions || []).includes('Other') && (
+                <Field label="Specify Condition"><TextInput value={form.specify_condition || ''} onChange={(e) => set({ specify_condition: e.target.value })} /></Field>
+              )}
               <Field label="Current Medications"><TextArea rows={2} value={form.current_medications || ''} onChange={(e) => set({ current_medications: e.target.value })} /></Field>
               <Field label="Family Medical History"><TextArea rows={2} value={form.family_medical_history || ''} onChange={(e) => set({ family_medical_history: e.target.value })} /></Field>
               <Field label="Medical Notes"><TextArea rows={2} value={form.medical_notes || ''} onChange={(e) => set({ medical_notes: e.target.value })} /></Field>
