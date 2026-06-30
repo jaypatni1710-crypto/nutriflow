@@ -33,7 +33,7 @@ async function uploadToR2(
   return key; // store the R2 key as the "file path"
 }
 
-export function createClientRouter(clientService: ClientService): Hono {
+export function createClientRouter(clientService: ClientService): Hono<{ Bindings: Env & { FILES_BUCKET?: R2Bucket } }> {
   const router = new Hono<{ Bindings: Env & { FILES_BUCKET?: R2Bucket } }>();
 
   // All client routes require auth + dietitian role
