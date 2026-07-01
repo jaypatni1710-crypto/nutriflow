@@ -38,6 +38,15 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // All client routes require auth + dietitian role
   router.use('*', authenticate, requireDietitian);
 
+  // Ownership guard: confirms :id belongs to the logged-in dietitian.
+  // Every sub-resource route (notes, tags, lab-reports, photos, etc.) must
+  // call this before touching the client's data, otherwise any dietitian
+  // could read/edit another dietitian's client data by guessing the id.
+  async function assertOwnership(c: any): Promise<boolean> {
+    const client = await clientService.getClientById(c.get('user').sub, c.req.param('id'));
+    return !!client;
+  }
+
   // GET / — list clients
   router.get('/', async (c) => {
     try {
@@ -175,6 +184,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // GET /:id/timeline
   router.get('/:id/timeline', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const timeline = await clientService.getTimeline(c.req.param('id'));
       return c.json({ success: true, data: timeline });
     } catch (err) {
@@ -185,6 +195,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // --- Notes ---
   router.post('/:id/notes', zValidator('json', createNoteSchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const note = await clientService.addNote(c.req.param('id'), c.get('user').sub, (c.req.valid('json') as any).content);
       return c.json({ success: true, message: 'Note added', data: note }, 201);
     } catch (err) {
@@ -194,6 +205,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.put('/:id/notes/:noteId', zValidator('json', createNoteSchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const note = await clientService.updateNote(c.req.param('id'), c.req.param('noteId'), (c.req.valid('json') as any).content);
       if (!note) return c.json({ success: false, message: 'Note not found' }, 404);
       return c.json({ success: true, message: 'Note updated', data: note });
@@ -204,6 +216,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.delete('/:id/notes/:noteId', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const deleted = await clientService.deleteNote(c.req.param('id'), c.req.param('noteId'));
       if (!deleted) return c.json({ success: false, message: 'Note not found' }, 404);
       return c.json({ success: true, message: 'Note deleted' });
@@ -215,6 +228,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // --- Food Frequency ---
   router.post('/:id/food-frequency', zValidator('json', foodFrequencySchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const data = await clientService.addFoodFrequency(c.req.param('id'), c.req.valid('json') as any);
       return c.json({ success: true, message: 'Food frequency saved', data }, 201);
     } catch (err) {
@@ -224,6 +238,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.get('/:id/food-frequency', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const data = await clientService.listFoodFrequency(c.req.param('id'));
       return c.json({ success: true, data });
     } catch (err) {
@@ -234,6 +249,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // --- Communications ---
   router.post('/:id/communications', zValidator('json', communicationSchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const { type, description } = c.req.valid('json') as any;
       const comm = await clientService.addCommunication(c.req.param('id'), c.get('user').sub, type, description);
       return c.json({ success: true, message: 'Communication logged', data: comm }, 201);
@@ -244,6 +260,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.get('/:id/communications', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const data = await clientService.listCommunications(c.req.param('id'));
       return c.json({ success: true, data });
     } catch (err) {
@@ -253,6 +270,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.put('/:id/communications/:commId', zValidator('json', communicationSchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const { type, description } = c.req.valid('json') as any;
       const comm = await clientService.updateCommunication(c.req.param('id'), c.req.param('commId'), type, description);
       if (!comm) return c.json({ success: false, message: 'Communication not found' }, 404);
@@ -264,6 +282,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.delete('/:id/communications/:commId', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const deleted = await clientService.deleteCommunication(c.req.param('id'), c.req.param('commId'));
       if (!deleted) return c.json({ success: false, message: 'Communication not found' }, 404);
       return c.json({ success: true, message: 'Communication deleted' });
@@ -275,6 +294,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // --- Tags ---
   router.post('/:id/tags', zValidator('json', tagSchema), async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const tags = await clientService.addTag(c.req.param('id'), (c.req.valid('json') as any).tag);
       return c.json({ success: true, message: 'Tag added', data: tags });
     } catch (err) {
@@ -284,6 +304,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.delete('/:id/tags/:tag', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const tags = await clientService.removeTag(c.req.param('id'), c.req.param('tag'));
       return c.json({ success: true, message: 'Tag removed', data: tags });
     } catch (err) {
@@ -294,6 +315,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   // --- Lab Reports (R2 file upload) ---
   router.post('/:id/lab-reports', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const formData = await c.req.formData();
       const file = formData.get('file') as File | null;
       const reportType = formData.get('report_type') as string | null;
@@ -324,6 +346,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.get('/:id/lab-reports/:reportId/download', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const report = await clientService.getLabReportById(c.req.param('id'), c.req.param('reportId'));
       if (!report) return c.json({ success: false, message: 'Report not found' }, 404);
 
@@ -344,6 +367,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.delete('/:id/lab-reports/:reportId', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const report = await clientService.deleteLabReport(c.req.param('id'), c.req.param('reportId'));
       if (!report) return c.json({ success: false, message: 'Report not found' }, 404);
       // Optionally delete from R2 too
@@ -356,8 +380,9 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   });
 
   // --- Progress Photos (R2 file upload) ---
- router.post('/:id/progress-photos', async (c) => {
+  router.post('/:id/progress-photos', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const clientId = c.req.param('id');
       const formData = await c.req.formData();
       const file = formData.get('photo') as File | null;
@@ -405,6 +430,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.get('/:id/progress-photos', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const photos = await clientService.listProgressPhotos(c.req.param('id'));
       return c.json({ success: true, data: photos });
     } catch (err) {
@@ -414,6 +440,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.get('/:id/progress-photos/:photoId/file', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const photo = await clientService.getProgressPhotoById(c.req.param('id'), c.req.param('photoId'));
       if (!photo) return c.json({ success: false, message: 'Photo not found' }, 404);
 
@@ -435,6 +462,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   router.delete('/:id/progress-photos/:photoId', async (c) => {
     try {
+      if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
       const photo = await clientService.deleteProgressPhoto(c.req.param('id'), c.req.param('photoId'));
       if (!photo) return c.json({ success: false, message: 'Photo not found' }, 404);
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
