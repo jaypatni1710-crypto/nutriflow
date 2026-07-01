@@ -26,6 +26,8 @@ const ERROR_MESSAGES: Record<string, { status: number; message: string }> = {
   USER_NOT_FOUND:                { status: 404, message: 'User not found' },
   INVALID_REFRESH_TOKEN:         { status: 401, message: 'Invalid session. Please login again' },
   REFRESH_TOKEN_EXPIRED:         { status: 401, message: 'Session expired. Please login again' },
+  INVALID_CREDENTIALS:           { status: 401, message: 'Invalid email or password' },
+  INVALID_CREDENTIALS:           { status: 401, message: 'Invalid email or password' },
 };
 
 function handleError(c: any, error: unknown) {

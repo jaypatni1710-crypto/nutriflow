@@ -30,7 +30,8 @@ app.use('*', async (c, next) => {
         return origin;
       }
       // Check explicit allow-list
-      if (allowedOrigins.some((allowed) => origin === allowed || origin.startsWith(allowed))) {
+      // Check explicit allow-list
+      if (allowedOrigins.some((allowed) => origin === allowed)) {
         return origin;
       }
       return null;
