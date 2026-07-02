@@ -9,6 +9,7 @@ import { DuplicateModal } from './ClientExtras';
 const TOTAL_STEPS = 3;
 const HEIGHT_SUGGESTIONS = Array.from({ length: 13 }, (_, i) => 140 + i * 5); // 140..200
 const WEIGHT_SUGGESTIONS = Array.from({ length: 19 }, (_, i) => 40 + i * 5); // 40..130
+const ADMIN_CONTACT = { phone: '7874994587', email: 'jd.software2025@gmail.com' };
 
 function calcAgeFromDob(dob?: string): number | null {
   if (!dob) return null;
@@ -117,6 +118,7 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
 
   const age = calcAgeFromDob(form.date_of_birth);
   const bmiResult = calcBmi(form.height_cm, form.current_weight_kg);
+  const isClientLimitError = /client limit reached/i.test(error);
 
   return (
     <>
@@ -141,7 +143,39 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
         </div>
 
         <div className="px-6 py-5 overflow-y-auto flex-1">
-          {error && <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{error}</div>}
+
+          {error && (
+            isClientLimitError ? (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-sm">
+                <p className="text-red-600 dark:text-red-400 font-semibold">{error}</p>
+                <p className="text-red-500 dark:text-red-400/80 mt-1.5">
+                  Contact your admin to increase your client limit:
+                </p>
+                <div className="mt-2 flex flex-col gap-1">
+                  <a
+                    href={`tel:${ADMIN_CONTACT.phone}`}
+                    className="inline-flex items-center gap-1.5 w-fit text-red-700 dark:text-red-300 font-medium hover:underline"
+                  >
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a1.5 1.5 0 001.5-1.5v-2.14a1.5 1.5 0 00-1.207-1.472l-3.13-.626a1.5 1.5 0 00-1.51.44l-.943.943a1.5 1.5 0 01-1.628.34 12.09 12.09 0 01-5.62-5.62 1.5 1.5 0 01.34-1.628l.942-.943a1.5 1.5 0 00.441-1.51l-.627-3.129A1.5 1.5 0 006.42 2.25H4.5a1.5 1.5 0 00-1.5 1.5v3z" />
+                    </svg>
+                    {ADMIN_CONTACT.phone}
+                  </a>
+                  <a
+                    href={`mailto:${ADMIN_CONTACT.email}`}
+                    className="inline-flex items-center gap-1.5 w-fit text-red-700 dark:text-red-300 font-medium hover:underline"
+                  >
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0a2.25 2.25 0 00-2.25-2.25h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                    {ADMIN_CONTACT.email}
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{error}</div>
+            )
+          )}
 
           {step === 1 && (
             <div className="grid grid-cols-2 gap-4">
@@ -306,10 +340,10 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
           ) : (
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || isClientLimitError}
               className="px-5 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60 transition-colors"
             >
-              {submitting ? 'Saving...' : 'Save Client'}
+              {submitting ? 'Saving...' : isClientLimitError ? 'Limit Reached' : 'Save Client'}
             </button>
           )}
         </div>
