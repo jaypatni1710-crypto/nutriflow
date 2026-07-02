@@ -81,3 +81,8 @@ export const changeStatusSchema = z.object({
 export const temporaryAccessSchema = z.object({
   access_type: z.enum(['1_week', '1_month'], { message: 'Invalid access type' }),
 });
+
+// client_limit: null means unlimited; otherwise a non-negative integer cap
+export const clientLimitSchema = z.object({
+  client_limit: z.number().int().min(0, { message: 'Client limit cannot be negative' }).nullable(),
+});

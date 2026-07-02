@@ -213,7 +213,12 @@ function PhotoSlot({ label, photo, clientId, uploading, onUpload, onDelete }: {
         accept=".jpg,.jpeg,.png"
         className="hidden"
         disabled={uploading}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f && onUpload) onUpload(f); }}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f && onUpload) onUpload(f);
+          // Reset so selecting the same file again always fires onChange
+          e.target.value = '';
+        }}
       />
     </label>
   );
@@ -221,24 +226,33 @@ function PhotoSlot({ label, photo, clientId, uploading, onUpload, onDelete }: {
 
 export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientId: string; photos: ClientProgressPhoto[]; onChanged: () => void }) {
   const [uploading, setUploading] = useState<'before' | 'monthly' | null>(null);
+  const [error, setError] = useState('');
 
   const before = photos.find((p) => p.photo_type === 'before') || null;
   const monthly = photos.filter((p) => p.photo_type === 'monthly').sort((a, b) => (a.month_number ?? 0) - (b.month_number ?? 0));
 
   const handleUpload = async (photoType: 'before' | 'monthly', file: File) => {
     setUploading(photoType);
+    setError('');
     try {
       const compressed = await compressImage(file);
       await clientApi.uploadProgressPhoto(clientId, photoType, compressed);
       onChanged();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to upload photo. Please try again.');
     } finally {
       setUploading(null);
     }
   };
 
   const remove = async (photoId: string) => {
-    await clientApi.deleteProgressPhoto(clientId, photoId);
-    onChanged();
+    setError('');
+    try {
+      await clientApi.deleteProgressPhoto(clientId, photoId);
+      onChanged();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to delete photo. Please try again.');
+    }
   };
 
   return (
@@ -246,8 +260,13 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
       <h4 className="text-sm font-bold text-slate-900 dark:text-white mb-1">Progress Photos</h4>
       <p className="text-xs text-slate-400 mb-4">1 Before photo (permanent) + last 3 monthly photos. Older monthly photos are removed automatically.</p>
 
+      {error && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs">{error}</div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <PhotoSlot
+          key="before"
           label="Before"
           photo={before}
           clientId={clientId}
@@ -267,6 +286,7 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
         ))}
         {monthly.length < 3 && (
           <PhotoSlot
+            key={`monthly-slot-${monthly.length + 1}`}
             label={`Month ${monthly.length + 1}`}
             photo={null}
             clientId={clientId}

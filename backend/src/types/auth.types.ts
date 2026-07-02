@@ -20,6 +20,7 @@ export interface User {
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  client_limit: number | null;
 }
 
 export interface PublicUser {
@@ -43,6 +44,8 @@ export interface PublicUser {
   last_login_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  client_limit?: number | null;
+  client_count?: number;
 }
 
 export interface JWTPayload {

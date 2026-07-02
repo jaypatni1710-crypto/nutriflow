@@ -240,13 +240,22 @@ export class AuthService {
 
   async getAllUsers(): Promise<PublicUser[]> {
     const result = await this.db.query(
-      `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,
-              email_verified, email_verified_at, status, decision_date,
-              temporary_access_type, temporary_access_start, temporary_access_end,
-              last_login_at, created_at, updated_at
-       FROM users WHERE account_type = 'dietitian' AND status != 'pending' ORDER BY created_at DESC`
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.phone_number, u.organization_name, u.address, u.qualification, u.experience, u.account_type,
+              u.email_verified, u.email_verified_at, u.status, u.decision_date,
+              u.temporary_access_type, u.temporary_access_start, u.temporary_access_end,
+              u.last_login_at, u.created_at, u.updated_at, u.client_limit,
+              COALESCE((SELECT COUNT(*)::int FROM clients c WHERE c.dietitian_id = u.id AND c.is_archived = false), 0) AS client_count
+       FROM users u WHERE u.account_type = 'dietitian' AND u.status != 'pending' ORDER BY u.created_at DESC`
     );
     return result.rows;
+  }
+
+  async setClientLimit(userId: string, clientLimit: number | null): Promise<void> {
+    const result = await this.db.query(
+      `UPDATE users SET client_limit = $1 WHERE id = $2 RETURNING id`,
+      [clientLimit, userId]
+    );
+    if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
   }
 
   async changeUserStatus(userId: string, status: 'approved' | 'rejected' | 'suspended'): Promise<void> {

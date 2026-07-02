@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { clientApi } from '../lib/client.api';
 import { ClientFullProfile, ClientFormData } from '../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills } from '../components/clients/FormFields';
 import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, STRESS_LEVELS, ACTIVITY_LEVELS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
-import { StatusBadge, StatusSelector, GoalProgressBar, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
+import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
 import { CommunicationLog } from '../components/clients/CommunicationLog';
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
@@ -264,9 +263,6 @@ export default function ClientProfilePage() {
           <Section title="Goal Information">
             <Row label="Goal" value={c.primary_goal} />
             {c.primary_goal === 'Other' && <Row label="Specify Goal" value={c.specify_goal} />}
-            <div className="mt-3">
-              <GoalProgressBar start={progress_logs[0]?.weight_kg ?? null} current={a?.current_weight_kg ?? null} goal={c.target_weight ?? null} />
-            </div>
           </Section>
           <Section title="Current Measurements">
             <Row label="Height" value={a?.height_cm ? `${a.height_cm} cm` : null} />
@@ -368,32 +364,6 @@ export default function ClientProfilePage() {
 
       {tab === 'Progress' && (
         <>
-          <Section title="Weight Trend">
-            {progress_logs.length === 0 ? <p className="text-sm text-slate-400">No progress data yet.</p> : (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={progress_logs.map((p) => ({ date: new Date(p.logged_at).toLocaleDateString(), weight: p.weight_kg }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" fontSize={12} />
-                  <YAxis fontSize={12} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="weight" stroke="#0d9488" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Section>
-          <Section title="BMI Trend">
-            {progress_logs.length === 0 ? <p className="text-sm text-slate-400">No progress data yet.</p> : (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={progress_logs.map((p) => ({ date: new Date(p.logged_at).toLocaleDateString(), bmi: p.bmi }))}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="date" fontSize={12} />
-                  <YAxis fontSize={12} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="bmi" stroke="#0ea5e9" strokeWidth={2} dot={{ r: 3 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Section>
           <ProgressPhotosSection clientId={id!} photos={progress_photos} onChanged={() => { setToast('Photos updated'); load(true); }} />
         </>
       )}
