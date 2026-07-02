@@ -202,7 +202,7 @@ export default function ClientProfilePage() {
   if (error && !profile) return <div className="text-center text-red-500 py-12 text-sm">{error}</div>;
   if (!profile) return null;
 
-  const { client: c, assessment: a, medical_history: m, progress_logs, notes, progress_photos, lab_reports, timeline, communications, tags } = profile;
+  const { client: c, assessment: a, medical_history: m, notes, progress_photos, lab_reports, timeline, communications, tags } = profile;
 
   return (
     <div>
