@@ -183,6 +183,26 @@ export function createAuthRouter(authService: AuthService): Hono<{ Bindings: Env
     } catch (e) { return handleError(c, e); }
   });
 
+  // GET /admin/users/:id/storage-usage — R2 storage used by a dietitian's client files
+  router.get('/admin/users/:id/storage-usage', authenticate, requireAdmin, async (c) => {
+    const { id } = c.req.param();
+    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
+    try {
+      const filePaths = await authService.getUserFilePaths(id);
+      const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+
+      if (!bucket) {
+        return c.json({ success: true, message: 'Storage usage retrieved', data: { total_bytes: 0, file_count: 0, configured: false } });
+      }
+
+      const heads = await Promise.all(filePaths.map((p) => bucket.head(p).catch(() => null)));
+      const total_bytes = heads.reduce((sum, obj) => sum + (obj?.size || 0), 0);
+      const file_count = heads.filter(Boolean).length;
+
+      return c.json({ success: true, message: 'Storage usage retrieved', data: { total_bytes, file_count, configured: true } });
+    } catch (e) { return handleError(c, e); }
+  });
+
   // DELETE /admin/users/:id/temporary-access — clear/reset temporary access
   router.delete('/admin/users/:id', authenticate, requireAdmin, async (c) => {
   const { id } = c.req.param();

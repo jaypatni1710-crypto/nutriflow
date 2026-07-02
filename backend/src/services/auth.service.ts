@@ -307,6 +307,22 @@ export class AuthService {
     );
   }
 
+  // Read-only lookup of every R2 file path belonging to a dietitian's clients.
+  // Used by the admin "storage used" view — does not delete anything.
+  async getUserFilePaths(userId: string): Promise<string[]> {
+    const clientsRes = await this.db.query(`SELECT id FROM clients WHERE dietitian_id = $1`, [userId]);
+    const clientIds: string[] = clientsRes.rows.map((r: any) => r.id);
+    if (clientIds.length === 0) return [];
+
+    const filesRes = await this.db.query(
+      `SELECT file_path FROM client_lab_reports WHERE client_id = ANY($1)
+       UNION ALL
+       SELECT file_path FROM client_progress_photos WHERE client_id = ANY($1)`,
+      [clientIds]
+    );
+    return filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
+  }
+
   async deleteUser(userId: string): Promise<{ filePaths: string[] }> {
     const client = await this.db.connect();
     try {

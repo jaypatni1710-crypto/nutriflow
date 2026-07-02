@@ -269,6 +269,28 @@ function UserDetailModal({ user, onClose }: { user: User; onClose: () => void })
 
   const hasTempAccess = !!user.temporary_access_type;
 
+  const [storage, setStorage] = useState<{ total_bytes: number; file_count: number; configured: boolean } | null>(null);
+  const [storageLoading, setStorageLoading] = useState(true);
+  const [storageError, setStorageError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    setStorageLoading(true);
+    setStorageError(false);
+    authApi.getUserStorageUsage(user.id)
+      .then((res) => { if (active) setStorage(res.data ?? null); })
+      .catch(() => { if (active) setStorageError(true); })
+      .finally(() => { if (active) setStorageLoading(false); });
+    return () => { active = false; };
+  }, [user.id]);
+
+  const fmtBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
@@ -308,9 +330,15 @@ function UserDetailModal({ user, onClose }: { user: User; onClose: () => void })
             <span className="font-medium text-slate-900 dark:text-white">{user.client_count ?? 0}</span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-slate-500 shrink-0">Limit of Client:</span>
+            <span className="text-slate-500 shrink-0">R2 Storage Used:</span>
             <span className="font-medium text-slate-900 dark:text-white">
-              {user.client_limit != null ? user.client_limit : 'Unlimited'}
+              {storageLoading
+                ? 'Loading…'
+                : storageError
+                ? 'Unable to load'
+                : !storage?.configured
+                ? 'Not configured'
+                : `${fmtBytes(storage.total_bytes)} (${storage.file_count} file${storage.file_count === 1 ? '' : 's'})`}
             </span>
           </div>
 

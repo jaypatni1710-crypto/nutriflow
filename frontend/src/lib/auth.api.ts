@@ -86,4 +86,7 @@ export const authApi = {
 
   deleteUser: (userId: string) =>
     request(`/admin/users/${userId}`, { method: 'DELETE' }),
+
+  getUserStorageUsage: (user_id: string) =>
+    request<{ total_bytes: number; file_count: number; configured: boolean }>(`/admin/users/${user_id}/storage-usage`),
 };
