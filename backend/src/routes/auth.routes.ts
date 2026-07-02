@@ -27,7 +27,6 @@ const ERROR_MESSAGES: Record<string, { status: number; message: string }> = {
   INVALID_REFRESH_TOKEN:         { status: 401, message: 'Invalid session. Please login again' },
   REFRESH_TOKEN_EXPIRED:         { status: 401, message: 'Session expired. Please login again' },
   INVALID_CREDENTIALS:           { status: 401, message: 'Invalid email or password' },
-  INVALID_CREDENTIALS:           { status: 401, message: 'Invalid email or password' },
 };
 
 function handleError(c: any, error: unknown) {
