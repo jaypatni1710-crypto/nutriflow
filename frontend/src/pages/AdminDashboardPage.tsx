@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { authApi } from '../lib/auth.api';
 import { User, UserStatus } from '../types/auth.types';
 import { Button, Spinner } from '../components/auth/AuthUI';
@@ -28,6 +28,16 @@ function StatusPill({ status }: { status: UserStatus }) {
 
 function Th({ children }: { children: ReactNode }) {
   return <th className="text-left px-5 py-3.5 font-semibold text-slate-600 text-xs uppercase tracking-wider">{children}</th>;
+}
+
+// Local YYYY-MM-DD key (matches the <input type="date"> format) for comparing dates
+// without timezone drift against the displayed created_at date.
+function toDateKey(d: string | Date): string {
+  const dt = typeof d === 'string' ? new Date(d) : d;
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const day = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 // ─── Icon buttons ─────────────────────────────────────────────────────────────
@@ -293,6 +303,17 @@ function UserDetailModal({ user, onClose }: { user: User; onClose: () => void })
             <StatusPill status={user.status} />
           </div>
 
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-500 shrink-0">Total Clients:</span>
+            <span className="font-medium text-slate-900 dark:text-white">{user.client_count ?? 0}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-slate-500 shrink-0">Limit of Client:</span>
+            <span className="font-medium text-slate-900 dark:text-white">
+              {user.client_limit != null ? user.client_limit : 'Unlimited'}
+            </span>
+          </div>
+
           {/* Dates section */}
           <div className="pt-3 mt-1 border-t border-slate-100 dark:border-slate-800 space-y-2.5">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Dates</p>
@@ -466,6 +487,34 @@ export default function AdminDashboardPage() {
   const [changeStatusUser, setChangeStatusUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<{ action: 'approve' | 'reject'; user: User } | null>(null);
+
+  // Users tab: search + filters
+  const [userSearch, setUserSearch] = useState('');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | UserStatus>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+
+  const filteredUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    return allUsers.filter((u) => {
+      if (q) {
+        const haystack = `${u.first_name} ${u.last_name} ${u.email} ${u.phone_number}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (userStatusFilter !== 'all' && u.status !== userStatusFilter) return false;
+      if (dateFrom && toDateKey(u.created_at) < dateFrom) return false;
+      if (dateTo && toDateKey(u.created_at) > dateTo) return false;
+      return true;
+    });
+  }, [allUsers, userSearch, userStatusFilter, dateFrom, dateTo]);
+
+  const hasActiveUserFilters = !!(userSearch || userStatusFilter !== 'all' || dateFrom || dateTo);
+  const clearUserFilters = () => {
+    setUserSearch('');
+    setUserStatusFilter('all');
+    setDateFrom('');
+    setDateTo('');
+  };
 
   const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type });
@@ -730,87 +779,149 @@ export default function AdminDashboardPage() {
               {allUsers.length === 0 ? (
                 <EmptyState title="No users yet" subtitle="Approved, rejected, or suspended accounts will appear here" />
               ) : (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                          <Th>Full Name</Th><Th>Email</Th><Th>Phone</Th>
-                          <Th>Created Date</Th><Th>Status</Th>
-                          <Th>Total Clients</Th><Th>Limit of Client</Th>
-                          <Th>Temporary Access</Th><Th>Actions</Th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {allUsers.map((user) => (
-                          <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
-                            <td className="px-5 py-4">
-                              <div className="font-semibold text-slate-900 dark:text-white">{user.first_name} {user.last_name}</div>
-                              <div className="text-xs text-slate-400 mt-0.5">{user.organization_name}</div>
-                            </td>
-                            <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{user.email}</td>
-                            <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{user.phone_number}</td>
-                            <td className="px-5 py-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                              {new Date(user.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </td>
-                            <td className="px-5 py-4"><StatusPill status={user.status} /></td>
-                            <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-medium">
-                              {user.client_count ?? 0}
-                            </td>
-                            <td className="px-5 py-4">
-                              <ClientLimitEditor
-                                user={user}
-                                onUpdated={() => {
-                                  fetchAllUsers();
-                                  showToast('Client limit updated.', 'success');
-                                }}
-                              />
-                            </td>
-                            <td className="px-5 py-4">
-                              <TempAccessDropdown
-                                user={user}
-                                onGranted={() => {
-                                  fetchAllUsers();
-                                  showToast('Temporary access granted.', 'success');
-                                }}
-                              />
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="flex items-center gap-1.5">
-                                <IconBtn
-                                  title="View Details"
-                                  onClick={() => setDetailUser(user)}
-                                  color="text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10"
-                                >
-                                  <ViewIcon />
-                                </IconBtn>
-                                <IconBtn
-                                  title="Change Status"
-                                  onClick={() => setChangeStatusUser(user)}
-                                  disabled={actionLoading === user.id}
-                                  color="text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
-                                >
-                                  <ChangeStatusIcon />
-                                </IconBtn>
-                                <IconBtn
-                                  title="Delete User"
-                                  onClick={() => setDeleteUser(user)}
-                                  disabled={actionLoading === user.id}
-                                  color="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
-                                >
-                                  <DeleteIcon />
-                                </IconBtn>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                <>
+                  {/* Search + filters */}
+                  <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="relative flex-1 min-w-[220px]">
+                      <svg className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                      </svg>
+                      <input
+                        type="text"
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        placeholder="Search by name, email, or phone..."
+                        className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      />
+                    </div>
+                    <select
+                      value={userStatusFilter}
+                      onChange={(e) => setUserStatusFilter(e.target.value as 'all' | UserStatus)}
+                      className="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="date"
+                        value={dateFrom}
+                        max={dateTo || undefined}
+                        onChange={(e) => setDateFrom(e.target.value)}
+                        className="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      />
+                      <span className="text-slate-400 text-sm">to</span>
+                      <input
+                        type="date"
+                        value={dateTo}
+                        min={dateFrom || undefined}
+                        onChange={(e) => setDateTo(e.target.value)}
+                        className="text-sm rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                      />
+                    </div>
+                    {hasActiveUserFilters && (
+                      <button
+                        onClick={clearUserFilters}
+                        className="text-xs font-semibold text-teal-600 hover:text-teal-700 px-2 py-2 whitespace-nowrap"
+                      >
+                        Clear filters
+                      </button>
+                    )}
                   </div>
-                  <div className="px-5 py-3 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
-                    {allUsers.length} {allUsers.length === 1 ? 'user' : 'users'}
+
+                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                    {filteredUsers.length === 0 ? (
+                      <div className="px-5 py-14 text-center">
+                        <p className="text-sm font-medium text-slate-500">No users match your filters.</p>
+                        <button onClick={clearUserFilters} className="mt-2 text-xs font-semibold text-teal-600 hover:text-teal-700">
+                          Clear filters
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                              <Th>Full Name</Th><Th>Email</Th>
+                              <Th>Created Date</Th><Th>Status</Th>
+                              <Th>Total Clients</Th><Th>Limit of Client</Th>
+                              <Th>Temporary Access</Th><Th>Actions</Th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {filteredUsers.map((user) => (
+                              <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                                <td className="px-5 py-4">
+                                  <div className="font-semibold text-slate-900 dark:text-white">{user.first_name} {user.last_name}</div>
+                                  <div className="text-xs text-slate-400 mt-0.5">{user.organization_name}</div>
+                                </td>
+                                <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{user.email}</td>
+                                <td className="px-5 py-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                                  {new Date(user.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </td>
+                                <td className="px-5 py-4"><StatusPill status={user.status} /></td>
+                                <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-medium">
+                                  {user.client_count ?? 0}
+                                </td>
+                                <td className="px-5 py-4">
+                                  <ClientLimitEditor
+                                    user={user}
+                                    onUpdated={() => {
+                                      fetchAllUsers();
+                                      showToast('Client limit updated.', 'success');
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-5 py-4">
+                                  <TempAccessDropdown
+                                    user={user}
+                                    onGranted={() => {
+                                      fetchAllUsers();
+                                      showToast('Temporary access granted.', 'success');
+                                    }}
+                                  />
+                                </td>
+                                <td className="px-5 py-4">
+                                  <div className="flex items-center gap-1.5">
+                                    <IconBtn
+                                      title="View Details"
+                                      onClick={() => setDetailUser(user)}
+                                      color="text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-500/10"
+                                    >
+                                      <ViewIcon />
+                                    </IconBtn>
+                                    <IconBtn
+                                      title="Change Status"
+                                      onClick={() => setChangeStatusUser(user)}
+                                      disabled={actionLoading === user.id}
+                                      color="text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                                    >
+                                      <ChangeStatusIcon />
+                                    </IconBtn>
+                                    <IconBtn
+                                      title="Delete User"
+                                      onClick={() => setDeleteUser(user)}
+                                      disabled={actionLoading === user.id}
+                                      color="text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+                                    >
+                                      <DeleteIcon />
+                                    </IconBtn>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    <div className="px-5 py-3 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                      {filteredUsers.length} {filteredUsers.length === 1 ? 'user' : 'users'}
+                      {filteredUsers.length !== allUsers.length ? ` (of ${allUsers.length} total)` : ''}
+                    </div>
                   </div>
-                </div>
+                </>
               )}
             </div>
           )}
