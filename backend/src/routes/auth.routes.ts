@@ -174,23 +174,18 @@ export function createAuthRouter(authService: AuthService): Hono<{ Bindings: Env
   });
 
   // DELETE /admin/users/:id/temporary-access — clear/reset temporary access
-  router.delete('/admin/users/:id/temporary-access', authenticate, requireAdmin, async (c) => {
-    const { id } = c.req.param();
-    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
-    try {
-      await authService.clearTemporaryAccess(id);
-      return c.json({ success: true, message: 'Temporary access cleared' });
-    } catch (e) { return handleError(c, e); }
-  });
-
   router.delete('/admin/users/:id', authenticate, requireAdmin, async (c) => {
-    const { id } = c.req.param();
-    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
-    try {
-      await authService.deleteUser(id);
-      return c.json({ success: true, message: 'User deleted successfully' });
-    } catch (e) { return handleError(c, e); }
-  });
+  const { id } = c.req.param();
+  if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
+  try {
+    const { filePaths } = await authService.deleteUser(id);
+    const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+    if (bucket && filePaths.length > 0) {
+      await Promise.all(filePaths.map((p: string) => bucket.delete(p).catch(() => {})));
+    }
+    return c.json({ success: true, message: 'User deleted successfully' });
+  } catch (e) { return handleError(c, e); }
+});
 
   return router;
 }

@@ -23,11 +23,64 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// Word-aware wrap into ~lineLength-character lines. If a single "word" is
+// itself longer than lineLength (no spaces to break on, e.g. an ID or a
+// run-on string), force-split it into chunks so it still wraps.
+function wrapText(text: string, lineLength = 100): string {
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let current = '';
+
+  const pushCurrent = () => {
+    if (current) { lines.push(current); current = ''; }
+  };
+
+  for (const word of words) {
+    if (word.length > lineLength) {
+      pushCurrent();
+      for (let i = 0; i < word.length; i += lineLength) {
+        lines.push(word.slice(i, i + lineLength));
+      }
+      continue;
+    }
+    const candidate = current ? current + ' ' + word : word;
+    if (candidate.length > lineLength) {
+      pushCurrent();
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  pushCurrent();
+  return lines.join('\n');
+}
+
+const ROW_PREVIEW_LENGTH = 100;
+
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLongText = typeof value === 'string' && value.length > ROW_PREVIEW_LENGTH;
+  const fullText = typeof value === 'string' ? value : '';
+  const displayText = isLongText
+    ? (expanded ? wrapText(fullText, 100) : fullText.slice(0, ROW_PREVIEW_LENGTH).trim() + '...')
+    : value;
+
   return (
-    <div className="flex justify-between py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm">
-      <span className="text-slate-500 dark:text-slate-400">{label}</span>
-      <span className="text-slate-900 dark:text-white font-medium text-right">{value ?? '—'}</span>
+    <div className="flex items-start justify-between gap-4 py-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0 text-sm">
+      <span className="text-slate-500 dark:text-slate-400 w-[30%] shrink-0">{label}</span>
+      <div className="w-[70%] text-right">
+        <span className="text-slate-900 dark:text-white font-medium whitespace-pre-wrap break-words">
+          {displayText ?? '—'}
+        </span>
+        {isLongText && (
+          <button
+            onClick={() => setExpanded((e) => !e)}
+            className="block ml-auto mt-1 text-xs font-semibold text-teal-600 hover:text-teal-700"
+          >
+            {expanded ? 'View less' : 'View more'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -57,9 +110,9 @@ export default function ClientProfilePage() {
   const [toast, setToast] = useState('');
   const [newNote, setNewNote] = useState('');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     if (!id) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     try {
       const res = await clientApi.get(id);
@@ -67,7 +120,7 @@ export default function ClientProfilePage() {
     } catch (err: any) {
       setError(err?.message || 'Failed to load client');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [id]);
 
@@ -259,7 +312,7 @@ export default function ClientProfilePage() {
             <Row label="Family Medical History" value={m?.family_medical_history} />
             <Row label="Medical Notes" value={m?.medical_notes} />
           </Section>
-          <LabReportsSection clientId={id!} reports={lab_reports || []} onChanged={() => { setToast('Lab reports updated'); load(); }} />
+          <LabReportsSection clientId={id!} reports={lab_reports || []} onChanged={() => { setToast('Lab reports updated'); load(true); }} />
         </>
       )}
 
@@ -341,7 +394,7 @@ export default function ClientProfilePage() {
               </ResponsiveContainer>
             )}
           </Section>
-          <ProgressPhotosSection clientId={id!} photos={progress_photos} onChanged={() => { setToast('Photos updated'); load(); }} />
+          <ProgressPhotosSection clientId={id!} photos={progress_photos} onChanged={() => { setToast('Photos updated'); load(true); }} />
         </>
       )}
 
@@ -349,13 +402,13 @@ export default function ClientProfilePage() {
 
       {tab === 'Communication' && (
         <>
-          <CommunicationLog clientId={id!} entries={communications || []} onChanged={() => { setToast('Communication updated'); load(); }} />
+          <CommunicationLog clientId={id!} entries={communications || []} onChanged={() => { setToast('Communication updated'); load(true); }} />
         </>
       )}
 
       {tab === 'Notes' && (
         <>
-          <ClientTagsEditor clientId={id!} tags={tags || []} onChanged={() => load()} />
+          <ClientTagsEditor clientId={id!} tags={tags || []} onChanged={() => load(true)} />
           <Section title="Private Dietitian Notes">
           <div className="mb-4">
             <TextArea rows={3} placeholder="Add a private note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />

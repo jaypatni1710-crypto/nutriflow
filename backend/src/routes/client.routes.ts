@@ -139,14 +139,18 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
   // DELETE /:id
   router.delete('/:id', async (c) => {
-    try {
-      const deleted = await clientService.deleteClient(c.get('user').sub, c.req.param('id'));
-      if (!deleted) return c.json({ success: false, message: 'Client not found' }, 404);
-      return c.json({ success: true, message: 'Client deleted successfully' });
-    } catch (err) {
-      return c.json({ success: false, message: 'Failed to delete client' }, 500);
+  try {
+    const { deleted, filePaths } = await clientService.deleteClient(c.get('user').sub, c.req.param('id'));
+    if (!deleted) return c.json({ success: false, message: 'Client not found' }, 404);
+    const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
+    if (bucket && filePaths.length > 0) {
+      await Promise.all(filePaths.map((p) => bucket.delete(p).catch(() => {})));
     }
-  });
+    return c.json({ success: true, message: 'Client deleted successfully' });
+  } catch (err) {
+    return c.json({ success: false, message: 'Failed to delete client' }, 500);
+  }
+});
 
   // PATCH /:id/status
   router.patch('/:id/status', zValidator('json', statusUpdateSchema), async (c) => {

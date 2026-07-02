@@ -346,6 +346,7 @@ export function LabReportsSection({ clientId, reports, onChanged }: { clientId: 
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [inputKey, setInputKey] = useState(0);
 
   const atLimit = reports.length >= MAX_REPORT_COUNT;
 
@@ -354,6 +355,7 @@ export function LabReportsSection({ clientId, reports, onChanged }: { clientId: 
     if (f && f.size > MAX_REPORT_FILE_SIZE) {
       setError('File size must be under 5MB');
       setFile(null);
+      setInputKey((k) => k + 1);
       return;
     }
     setFile(f);
@@ -366,6 +368,7 @@ export function LabReportsSection({ clientId, reports, onChanged }: { clientId: 
     try {
       await clientApi.uploadLabReport(clientId, reportType, file);
       setFile(null);
+      setInputKey((k) => k + 1);
       onChanged();
     } catch (err: any) {
       setError(err?.message || 'Failed to upload report');
@@ -397,6 +400,7 @@ export function LabReportsSection({ clientId, reports, onChanged }: { clientId: 
           <div>
             <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">File (PDF, JPG, PNG)</label>
             <input
+              key={inputKey}
               type="file"
               accept=".pdf,.jpg,.jpeg,.png"
               onChange={(e) => handleFile(e.target.files?.[0] || null)}

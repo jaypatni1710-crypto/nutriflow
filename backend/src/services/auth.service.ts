@@ -298,11 +298,54 @@ export class AuthService {
     );
   }
 
-  async deleteUser(userId: string): Promise<void> {
-    await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-    await this.db.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [userId]);
-    await this.db.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [userId]);
-    const result = await this.db.query(`DELETE FROM users WHERE id = $1 RETURNING id`, [userId]);
-    if (result.rows.length === 0) throw new Error('USER_NOT_FOUND');
+  async deleteUser(userId: string): Promise<{ filePaths: string[] }> {
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
+
+      const clientsRes = await client.query(`SELECT id FROM clients WHERE dietitian_id = $1`, [userId]);
+      const clientIds: string[] = clientsRes.rows.map((r: any) => r.id);
+      let filePaths: string[] = [];
+
+      if (clientIds.length > 0) {
+        const filesRes = await client.query(
+          `SELECT file_path FROM client_lab_reports WHERE client_id = ANY($1)
+           UNION ALL
+           SELECT file_path FROM client_progress_photos WHERE client_id = ANY($1)`,
+          [clientIds]
+        );
+        filePaths = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
+
+        await client.query(`DELETE FROM client_assessments WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_medical_history WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_notes WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_tags WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_communications WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_food_frequency WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_progress_logs WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_lab_reports WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_progress_photos WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM client_timeline WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM clients WHERE dietitian_id = $1`, [userId]);
+      }
+
+      await client.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [userId]);
+      await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [userId]);
+      const result = await client.query(`DELETE FROM users WHERE id = $1 RETURNING id`, [userId]);
+
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('USER_NOT_FOUND');
+      }
+
+      await client.query('COMMIT');
+      return { filePaths };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }
