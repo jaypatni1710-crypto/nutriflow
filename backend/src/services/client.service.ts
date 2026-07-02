@@ -110,6 +110,23 @@ export class ClientService {
     const conn = await this.db.connect();
     try {
       await conn.query('BEGIN');
+
+      // Lock the dietitian's row so concurrent create-client requests can't both
+      // slip past the limit check at the same time.
+      const limitRes = await conn.query(`SELECT client_limit FROM users WHERE id = $1 FOR UPDATE`, [dietitianId]);
+      const clientLimit: number | null = limitRes.rows[0]?.client_limit ?? null;
+      if (clientLimit !== null) {
+        const countRes = await conn.query(
+          `SELECT COUNT(*)::int AS count FROM clients WHERE dietitian_id = $1 AND is_archived = false`,
+          [dietitianId]
+        );
+        if (countRes.rows[0].count >= clientLimit) {
+          const limitErr: any = new Error(`Client limit reached. You can add up to ${clientLimit} clients.`);
+          limitErr.code = 'CLIENT_LIMIT_REACHED';
+          throw limitErr;
+        }
+      }
+
       const clientRes = await conn.query(
         `INSERT INTO clients (
           dietitian_id, first_name, last_name, phone_number, whatsapp_number, email, gender,

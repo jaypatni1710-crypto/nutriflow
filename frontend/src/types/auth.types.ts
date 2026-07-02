@@ -22,6 +22,8 @@ export interface User {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  client_limit?: number | null;
+  client_count?: number;
 }
 
 export interface AuthTokens {

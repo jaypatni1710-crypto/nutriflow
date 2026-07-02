@@ -76,6 +76,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       const client = await clientService.createClient(dietitianId, c.req.valid('json') as any);
       return c.json({ success: true, message: 'Client created successfully', data: client }, 201);
     } catch (err: any) {
+      if (err.code === 'CLIENT_LIMIT_REACHED') return c.json({ success: false, message: err.message }, 403);
       if (err.code === '23505') return c.json({ success: false, message: 'A client with this phone number already exists' }, 409);
       console.error(err);
       return c.json({ success: false, message: 'Failed to create client' }, 500);

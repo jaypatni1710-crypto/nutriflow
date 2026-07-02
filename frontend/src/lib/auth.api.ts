@@ -78,6 +78,12 @@ export const authApi = {
   clearTemporaryAccess: (user_id: string) =>
     request(`/admin/users/${user_id}/temporary-access`, { method: 'DELETE' }),
 
+  setClientLimit: (user_id: string, client_limit: number | null) =>
+    request(`/admin/users/${user_id}/client-limit`, {
+      method: 'POST',
+      body: JSON.stringify({ client_limit }),
+    }),
+
   deleteUser: (userId: string) =>
     request(`/admin/users/${userId}`, { method: 'DELETE' }),
 };

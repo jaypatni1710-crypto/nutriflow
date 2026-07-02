@@ -151,6 +151,104 @@ function TempAccessDropdown({ user, onGranted }: { user: User; onGranted: () => 
   );
 }
 
+// ─── Client Limit Editor ──────────────────────────────────────────────────────
+// Click-to-edit control for a dietitian's max-clients cap. Blank input = unlimited.
+function ClientLimitEditor({ user, onUpdated }: { user: User; onUpdated: () => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(user.client_limit != null ? String(user.client_limit) : '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    setValue(user.client_limit != null ? String(user.client_limit) : '');
+  }, [user.client_limit]);
+
+  const handleSave = async () => {
+    const trimmed = value.trim();
+    const parsed = trimmed === '' ? null : Number(trimmed);
+    if (parsed !== null && (!Number.isInteger(parsed) || parsed < 0)) {
+      setError('Enter a whole number, or leave blank for unlimited.');
+      return;
+    }
+    setSaving(true);
+    setError('');
+    try {
+      await authApi.setClientLimit(user.id, parsed);
+      setEditing(false);
+      onUpdated();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update limit.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setValue(user.client_limit != null ? String(user.client_limit) : '');
+    setError('');
+    setEditing(false);
+  };
+
+  if (!editing) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        title="Click to set a client limit"
+        className="text-xs rounded-lg border border-slate-300 dark:border-slate-600 px-2 py-1.5 text-slate-700 dark:text-slate-200 hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-500/10 transition-colors"
+      >
+        {user.client_limit != null ? user.client_limit : 'Unlimited'}
+      </button>
+    );
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min={0}
+          step={1}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleSave();
+            if (e.key === 'Escape') handleCancel();
+          }}
+          placeholder="Unlimited"
+          disabled={saving}
+          className="w-20 text-xs rounded-lg border border-slate-300 dark:border-slate-600 px-2 py-1.5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-400"
+        />
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          title="Save"
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 disabled:opacity-40"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+          </svg>
+        </button>
+        <button
+          onClick={handleCancel}
+          disabled={saving}
+          title="Cancel"
+          className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      {error && (
+        <div className="absolute top-full left-0 mt-1 bg-red-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap z-10">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── User Detail Modal ────────────────────────────────────────────────────────
 function UserDetailModal({ user, onClose }: { user: User; onClose: () => void }) {
   const fmt = (d: string | null) =>
@@ -465,7 +563,7 @@ export default function AdminDashboardPage() {
 
   const handleLogout = async () => {
     const rt = localStorage.getItem('refresh_token') ?? '';
-    await authApi.logout(rt).catch(() => {});
+    await authApi.logout(rt).catch(() => { });
     clearAuth();
     navigate('/login');
   };
@@ -515,13 +613,11 @@ export default function AdminDashboardPage() {
               key={t.id}
               onClick={() => setTab(t.id)}
               title={sidebarCollapsed ? t.label : undefined}
-              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                sidebarCollapsed ? 'justify-center' : ''
-              } ${
-                tab === t.id
+              className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${sidebarCollapsed ? 'justify-center' : ''
+                } ${tab === t.id
                   ? 'bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400'
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200'
-              }`}
+                }`}
             >
               {t.id === 'pending' ? (
                 <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
@@ -641,6 +737,7 @@ export default function AdminDashboardPage() {
                         <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
                           <Th>Full Name</Th><Th>Email</Th><Th>Phone</Th>
                           <Th>Created Date</Th><Th>Status</Th>
+                          <Th>Total Clients</Th><Th>Limit of Client</Th>
                           <Th>Temporary Access</Th><Th>Actions</Th>
                         </tr>
                       </thead>
@@ -657,6 +754,18 @@ export default function AdminDashboardPage() {
                               {new Date(user.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </td>
                             <td className="px-5 py-4"><StatusPill status={user.status} /></td>
+                            <td className="px-5 py-4 text-slate-600 dark:text-slate-300 font-medium">
+                              {user.client_count ?? 0}
+                            </td>
+                            <td className="px-5 py-4">
+                              <ClientLimitEditor
+                                user={user}
+                                onUpdated={() => {
+                                  fetchAllUsers();
+                                  showToast('Client limit updated.', 'success');
+                                }}
+                              />
+                            </td>
                             <td className="px-5 py-4">
                               <TempAccessDropdown
                                 user={user}

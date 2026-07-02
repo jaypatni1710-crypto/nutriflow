@@ -6,7 +6,7 @@ import { checkRateLimit, AUTH_LIMITER, RESEND_LIMITER } from '../utils/rate-limi
 import {
   registerSchema, loginSchema, forgotPasswordSchema, resetPasswordSchema,
   verifyEmailSchema, resendVerificationSchema, adminActionSchema,
-  refreshTokenSchema, changeStatusSchema, temporaryAccessSchema,
+  refreshTokenSchema, changeStatusSchema, temporaryAccessSchema, clientLimitSchema,
 } from '../types/validation.schemas';
 
 const ERROR_MESSAGES: Record<string, { status: number; message: string }> = {
@@ -170,6 +170,16 @@ export function createAuthRouter(authService: AuthService): Hono<{ Bindings: Env
     try {
       await authService.grantTemporaryAccess(id, c.req.valid('json').access_type);
       return c.json({ success: true, message: 'Temporary access granted successfully' });
+    } catch (e) { return handleError(c, e); }
+  });
+
+  // POST /admin/users/:id/client-limit — set (or clear) a dietitian's client cap
+  router.post('/admin/users/:id/client-limit', authenticate, requireAdmin, zValidator('json', clientLimitSchema), async (c) => {
+    const { id } = c.req.param();
+    if (!/^[0-9a-fA-F-]{36}$/.test(id)) return c.json({ success: false, message: 'Invalid user ID' }, 400);
+    try {
+      await authService.setClientLimit(id, c.req.valid('json').client_limit);
+      return c.json({ success: true, message: 'Client limit updated successfully' });
     } catch (e) { return handleError(c, e); }
   });
 
