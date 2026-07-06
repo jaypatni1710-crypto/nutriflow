@@ -123,6 +123,34 @@ function SettingsModal({
   );
 }
 
+function AddAppointmentModal({ date, onClose }: { date: Date | null; onClose: () => void }) {
+  const dateLabel = date
+    ? date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Add Appointment</h3>
+        {dateLabel && (
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{dateLabel}</p>
+        )}
+
+        {/* Blank for now — form fields to be added later */}
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AppointmentsPage() {
   const today = new Date();
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -133,6 +161,8 @@ export default function AppointmentsPage() {
     workingStart: '',
     workingEnd: '',
   });
+  const [showAddAppointment, setShowAddAppointment] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -144,6 +174,11 @@ export default function AppointmentsPage() {
   const goToPreviousMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1));
   const goToNextMonth = () => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1));
 
+  const openAddAppointment = (day: number | null) => {
+    setSelectedDate(day ? new Date(year, month, day) : null);
+    setShowAddAppointment(true);
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -153,7 +188,7 @@ export default function AppointmentsPage() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {}}
+            onClick={() => openAddAppointment(null)}
             className="px-4 py-2.5 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 transition-colors"
           >
             Add Appointment
@@ -193,12 +228,13 @@ export default function AppointmentsPage() {
             return (
               <div
                 key={idx}
+                onClick={() => day !== null && openAddAppointment(day)}
                 className={`h-16 sm:h-20 flex items-start justify-start p-2 rounded-lg text-sm ${
                   day === null
                     ? ''
                     : isToday
-                    ? 'bg-teal-600 text-white font-semibold'
-                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200'
+                    ? 'bg-teal-600 text-white font-semibold cursor-pointer hover:bg-teal-700'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800'
                 }`}
               >
                 {day ?? ''}
@@ -229,6 +265,10 @@ export default function AppointmentsPage() {
           onClose={() => setShowSettings(false)}
           onSave={(s) => setSettings(s)}
         />
+      )}
+
+      {showAddAppointment && (
+        <AddAppointmentModal date={selectedDate} onClose={() => setShowAddAppointment(false)} />
       )}
     </div>
   );
