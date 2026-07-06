@@ -4,10 +4,8 @@ import { secureHeaders } from 'hono/secure-headers';
 import { getDb } from './utils/db';
 import { AuthService } from './services/auth.service';
 import { ClientService } from './services/client.service';
-import { AppointmentService } from './services/appointment.service';
 import { createAuthRouter } from './routes/auth.routes';
 import { createClientRouter } from './routes/client.routes';
-import { createAppointmentRouter } from './routes/appointment.routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -31,6 +29,7 @@ app.use('*', async (c, next) => {
       if (origin.endsWith('.app.github.dev')) {
         return origin;
       }
+      // Check explicit allow-list
       // Check explicit allow-list
       if (allowedOrigins.some((allowed) => origin === allowed)) {
         return origin;
@@ -75,12 +74,6 @@ app.all('/api/clients/*', delegate('/api/clients', (env) => {
   const db = getDb(env);
   const clientService = new ClientService(db);
   return createClientRouter(clientService);
-}));
-
-app.all('/api/appointments/*', delegate('/api/appointments', (env) => {
-  const db = getDb(env);
-  const appointmentService = new AppointmentService(db);
-  return createAppointmentRouter(appointmentService);
 }));
 
 // 404 handler
