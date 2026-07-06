@@ -12,6 +12,8 @@ import DashboardHomePage from './pages/DashboardHomePage';
 import ClientsPage from './pages/ClientsPage';
 import ClientProfilePage from './pages/ClientProfilePage';
 import ProfilePage from './pages/ProfilePage';
+import DietPlanPage from './pages/DietPlanPage';
+import AppointmentsPage from './pages/AppointmentsPage';
 
 export default function App() {
   return (
@@ -48,6 +50,8 @@ export default function App() {
               <Route index element={<DashboardHomePage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="clients/:id" element={<ClientProfilePage />} />
+              <Route path="diet-plan" element={<DietPlanPage />} />
+              <Route path="appointments" element={<AppointmentsPage />} />
             </Route>
 
             <Route

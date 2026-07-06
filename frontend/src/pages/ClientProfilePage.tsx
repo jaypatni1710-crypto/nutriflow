@@ -9,7 +9,7 @@ import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, 
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
 
-const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Notes', 'Timeline'] as const;
+const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Diet Plan', 'Appointments', 'Notes', 'Timeline'] as const;
 type Tab = typeof TABS[number];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -250,7 +250,7 @@ export default function ClientProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusSelector status={c.status} onChange={handleStatusChange} />
-        {!editing && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && (
+        {!editing && tab !== 'Progress' && tab !== 'Diet Plan' && tab !== 'Appointments' && tab !== 'Notes' && tab !== 'Timeline' && (
           <button onClick={startEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Edit</button>
         )}
         {editing && (
@@ -392,6 +392,16 @@ export default function ClientProfilePage() {
       {tab === 'Progress' && (
         <>
           <ProgressPhotosSection clientId={id!} photos={progress_photos} onChanged={() => { setToast('Photos updated'); load(true); }} />
+        </>
+      )}
+
+      {tab === 'Diet Plan' && (
+        <>
+        </>
+      )}
+
+      {tab === 'Appointments' && (
+        <>
         </>
       )}
 

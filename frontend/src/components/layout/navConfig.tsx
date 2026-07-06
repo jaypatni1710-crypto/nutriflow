@@ -30,9 +30,35 @@ function ClientsIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
+function DietPlanIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M8.25 3v6.75a2.25 2.25 0 002.25 2.25h.75M8.25 3H6.75a1.5 1.5 0 00-1.5 1.5v3a2.25 2.25 0 002.25 2.25M8.25 3v0M9.75 12v9M15.75 3v18M15.75 3a3 3 0 013 3v3a3 3 0 01-3 3"
+      />
+    </svg>
+  );
+}
+
+function AppointmentsIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0V11.25a2.25 2.25 0 012.25-2.25h13.5a2.25 2.25 0 012.25 2.25v7.5m-15-3h.008v.008H8.25V15.75zm3 0h.008v.008H11.25V15.75zm3 0h.008v.008H14.25V15.75z"
+      />
+    </svg>
+  );
+}
+
 // V1 scope: Dashboard + Clients only. Do not add placeholder items for
 // future modules — extend this list when the next module actually ships.
 export const NAV_ITEMS: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: DashboardIcon },
   { label: 'Clients', path: '/dashboard/clients', icon: ClientsIcon },
+  { label: 'Diet Plan', path: '/dashboard/diet-plan', icon: DietPlanIcon },
+  { label: 'Appointments', path: '/dashboard/appointments', icon: AppointmentsIcon },
 ];
