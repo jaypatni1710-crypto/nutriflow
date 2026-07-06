@@ -455,18 +455,21 @@ const TIMELINE_ICONS: Record<string, string> = {
   communication_logged: '💬', goal_updated: '🎯', archived: '📦', restored: '✅',
 };
 
-const FILTER_OPTIONS = [
-  { label: 'All', value: '' },
-  { label: 'Reports', value: 'report_uploaded' },
-  { label: 'Assessments', value: 'assessment_updated' },
-  { label: 'Communication', value: 'communication_logged' },
-  { label: 'Status Changes', value: 'status_changed' },
-  { label: 'Weight Updates', value: 'weight_updated' },
+const FILTER_OPTIONS: { label: string; values: string[] }[] = [
+  { label: 'All', values: [] },
+  { label: 'Overview', values: ['client_created', 'goal_updated'] },
+  { label: 'Assessment', values: ['assessment_updated'] },
+  { label: 'Medical History', values: ['medical_history_updated'] },
+  { label: 'Progress', values: ['photo_uploaded', 'weight_updated'] },
+  { label: 'Note', values: ['note_added'] },
+  { label: 'Diet Plan', values: ['diet_plan_updated'] },
+  { label: 'Appointment', values: ['appointment_scheduled'] },
 ];
 
 export function TimelineSection({ events }: { events: ClientTimelineEvent[] }) {
-  const [filter, setFilter] = useState('');
-  const filtered = filter ? events.filter((e) => e.event_type === filter) : events;
+  const [filter, setFilter] = useState('All');
+  const activeValues = FILTER_OPTIONS.find((o) => o.label === filter)?.values || [];
+  const filtered = activeValues.length ? events.filter((e) => activeValues.includes(e.event_type)) : events;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
@@ -477,7 +480,7 @@ export function TimelineSection({ events }: { events: ClientTimelineEvent[] }) {
           onChange={(e) => setFilter(e.target.value)}
           className="px-2.5 py-1.5 rounded-lg text-xs border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
         >
-          {FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          {FILTER_OPTIONS.map((o) => <option key={o.label} value={o.label}>{o.label}</option>)}
         </select>
       </div>
       {filtered.length === 0 ? (
