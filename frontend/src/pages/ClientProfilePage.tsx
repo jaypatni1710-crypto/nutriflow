@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { clientApi } from '../lib/client.api';
 import { ClientFullProfile, ClientFormData } from '../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills } from '../components/clients/FormFields';
-import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, STRESS_LEVELS, ACTIVITY_LEVELS } from '../lib/clientOptions';
+import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, ACTIVITY_LEVELS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
 import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
 import { CommunicationLog } from '../components/clients/CommunicationLog';
@@ -149,7 +149,7 @@ export default function ClientProfilePage() {
       diet_type: a?.diet_type || '', specify_diet_type: a?.specify_diet_type || '', food_preferences: a?.food_preferences || '',
       disliked_foods: a?.disliked_foods || '',
       wake_up_time: a?.wake_up_time || '', sleep_time: a?.sleep_time || '', water_intake_per_day: a?.water_intake_per_day || '',
-      stress_level: a?.stress_level || '', activity_level: a?.activity_level || '',
+      activity_level: a?.activity_level || '',
       lifestyle_notes: a?.lifestyle_notes || '',
     });
     setEditing(true);
@@ -292,7 +292,6 @@ export default function ClientProfilePage() {
             <Row label="Wake Up Time" value={a?.wake_up_time} />
             <Row label="Sleep Time" value={a?.sleep_time} />
             <Row label="Water Intake/Day" value={a?.water_intake_per_day} />
-            <Row label="Stress Level" value={a?.stress_level} />
             <Row label="Activity Level" value={a?.activity_level} />
             <Row label="Notes" value={a?.lifestyle_notes} />
           </Section>
@@ -342,7 +341,6 @@ export default function ClientProfilePage() {
                 <Field label="Specify Food Preference"><TextInput value={form.specify_diet_type || ''} onChange={(e) => set({ specify_diet_type: e.target.value })} /></Field>
               )}
               <Field label="Activity Level"><Select options={ACTIVITY_LEVELS} value={form.activity_level || ''} onChange={(e) => set({ activity_level: e.target.value })} /></Field>
-              <Field label="Stress Level"><Select options={STRESS_LEVELS} value={form.stress_level || ''} onChange={(e) => set({ stress_level: e.target.value })} /></Field>
               <Field label="Client Likes to Eat"><TextInput value={form.food_preferences || ''} onChange={(e) => set({ food_preferences: e.target.value })} /></Field>
               <Field label="Client Doesn't Like to Eat"><TextInput value={form.disliked_foods || ''} onChange={(e) => set({ disliked_foods: e.target.value })} /></Field>
               <Field label="Notes" className="col-span-2"><TextArea rows={2} value={form.lifestyle_notes || ''} onChange={(e) => set({ lifestyle_notes: e.target.value })} /></Field>

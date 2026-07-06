@@ -480,6 +480,28 @@ function PendingConfirmDialog({ action, userName, onClose, onConfirm, loading }:
   );
 }
 
+// ─── Logout Confirm Dialog ────────────────────────────────────────────────────
+function LogoutConfirmDialog({ onClose, onConfirm }: { onClose: () => void; onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-2">Confirm Logout</h3>
+        <p className="text-sm text-slate-500 mb-5">Are you sure you want to logout?</p>
+        <div className="flex gap-3">
+          <Button variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 py-2.5 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-700 text-white transition-colors"
+          >
+            Logout
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Empty state ──────────────────────────────────────────────────────────────
 function EmptyState({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -515,6 +537,7 @@ export default function AdminDashboardPage() {
   const [changeStatusUser, setChangeStatusUser] = useState<User | null>(null);
   const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const [pendingConfirm, setPendingConfirm] = useState<{ action: 'approve' | 'reject'; user: User } | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Users tab: search + filters
   const [userSearch, setUserSearch] = useState('');
@@ -731,7 +754,7 @@ export default function AdminDashboardPage() {
                 </svg>
               )}
             </button>
-            <Button variant="secondary" size="sm" onClick={handleLogout}>Logout</Button>
+            <Button variant="secondary" size="sm" onClick={() => setShowLogoutConfirm(true)}>Logout</Button>
           </div>
         </header>
 
@@ -984,6 +1007,13 @@ export default function AdminDashboardPage() {
           onClose={() => setPendingConfirm(null)}
           onConfirm={pendingConfirm.action === 'approve' ? handlePendingApprove : handlePendingReject}
           loading={actionLoading === pendingConfirm.user.id}
+        />
+      )}
+
+      {showLogoutConfirm && (
+        <LogoutConfirmDialog
+          onClose={() => setShowLogoutConfirm(false)}
+          onConfirm={() => { setShowLogoutConfirm(false); handleLogout(); }}
         />
       )}
 

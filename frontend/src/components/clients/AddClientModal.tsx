@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { clientApi } from '../../lib/client.api';
 import { ClientFormData, DuplicateMatch } from '../../types/client.types';
 import { Field, TextInput, TextArea, Select, MultiSelectPills, NumberPickerInput } from './FormFields';
-import { MEDICAL_CONDITIONS, STRESS_LEVELS, ACTIVITY_LEVELS, STEP_LABELS, DIET_TYPES, GOAL_OPTIONS } from '../../lib/clientOptions';
+import { MEDICAL_CONDITIONS, ACTIVITY_LEVELS, STEP_LABELS, DIET_TYPES, GOAL_OPTIONS } from '../../lib/clientOptions';
 import { DuplicateModal } from './ClientExtras';
 
 const TOTAL_STEPS = 3;
@@ -157,7 +157,7 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
                     className="inline-flex items-center gap-1.5 w-fit text-red-700 dark:text-red-300 font-medium hover:underline"
                   >
                     <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a1.5 1.5 0 001.5-1.5v-2.14a1.5 1.5 0 00-1.207-1.472l-3.13-.626a1.5 1.5 0 00-1.51.44l-.943.943a1.5 1.5 0 01-1.628.34 12.09 12.09 0 01-5.62-5.62 1.5 1.5 0 01.34-1.628l.942-.943a1.5 1.5 0 00.441-1.51l-.627-3.129A1.5 1.5 0 006.42 2.25H4.5a1.5 1.5 0 00-1.5 1.5v3z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h1.5a1.5 1.5 0 001.5-1.5v-2.14a1.5 1.5 0 00-1.207-1.472l-3.13-.626a1.5 1.5 0 00-1.51.44l-.943.943a1.5 1.5 0 01-1.628.34 12.09 12.09 0 01-5.62-5.62a1.5 1.5 0 01.34-1.628l.942-.943a1.5 1.5 0 00.441-1.51l-.627-3.129A1.5 1.5 0 006.42 2.25H4.5a1.5 1.5 0 00-1.5 1.5v3z" />
                     </svg>
                     {ADMIN_CONTACT.phone}
                   </a>
@@ -298,9 +298,6 @@ export function AddClientModal({ onClose, onSuccess }: { onClose: () => void; on
           {step === 3 && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Stress Level">
-                  <Select options={STRESS_LEVELS} value={form.stress_level || ''} onChange={(e) => set({ stress_level: e.target.value })} />
-                </Field>
                 <Field label="Activity Level">
                   <Select options={ACTIVITY_LEVELS} value={form.activity_level || ''} onChange={(e) => set({ activity_level: e.target.value })} />
                 </Field>
