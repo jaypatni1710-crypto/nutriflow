@@ -156,6 +156,7 @@ export interface ClientNote {
   id: string;
   client_id: string;
   dietitian_id: string;
+  title: string | null;
   content: string;
   created_at: string;
   updated_at: string;

@@ -368,19 +368,19 @@ export class ClientService {
   }
 }
 
-  async addNote(clientId: string, dietitianId: string, content: string) {
+  async addNote(clientId: string, dietitianId: string, title: string, content?: string) {
     const res = await this.db.query(
-      `INSERT INTO client_notes (client_id, dietitian_id, content) VALUES ($1,$2,$3) RETURNING *`,
-      [clientId, dietitianId, content]
+      `INSERT INTO client_notes (client_id, dietitian_id, title, content) VALUES ($1,$2,$3,$4) RETURNING *`,
+      [clientId, dietitianId, title, content || null]
     );
     await this.addTimelineEvent(clientId, 'note_added', 'Note added');
     return res.rows[0];
   }
 
-  async updateNote(clientId: string, noteId: string, content: string) {
+  async updateNote(clientId: string, noteId: string, title: string, content?: string) {
     const res = await this.db.query(
-      `UPDATE client_notes SET content = $1 WHERE id = $2 AND client_id = $3 RETURNING *`,
-      [content, noteId, clientId]
+      `UPDATE client_notes SET title = $1, content = $2 WHERE id = $3 AND client_id = $4 RETURNING *`,
+      [title, content || null, noteId, clientId]
     );
     return res.rows[0] || null;
   }

@@ -59,7 +59,8 @@ export const createClientSchema = z.object({
 export const updateClientSchema = createClientSchema.partial();
 
 export const createNoteSchema = z.object({
-  content: z.string().min(1),
+  title: z.string().min(1),
+  content: z.string().optional(),
 });
 
 const freqEnum = z.enum(['Daily', '4-6 Times Per Week', '2-3 Times Per Week', 'Weekly', 'Monthly', 'Rarely', 'Never']);

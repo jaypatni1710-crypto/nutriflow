@@ -6,11 +6,10 @@ import { Field, TextInput, TextArea, Select, MultiSelectPills } from '../compone
 import { GOAL_OPTIONS, MEDICAL_CONDITIONS, DIET_TYPES, ACTIVITY_LEVELS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
 import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
-import { CommunicationLog } from '../components/clients/CommunicationLog';
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
 
-const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Communication', 'Notes', 'Timeline'] as const;
+const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Notes', 'Timeline'] as const;
 type Tab = typeof TABS[number];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -107,7 +106,12 @@ export default function ClientProfilePage() {
   const [form, setForm] = useState<ClientFormData>({} as ClientFormData);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
-  const [newNote, setNewNote] = useState('');
+  const [newNoteTitle, setNewNoteTitle] = useState('');
+  const [newNoteDescription, setNewNoteDescription] = useState('');
+  const [viewingNoteId, setViewingNoteId] = useState<string | null>(null);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteTitle, setEditNoteTitle] = useState('');
+  const [editNoteDescription, setEditNoteDescription] = useState('');
 
   const load = useCallback(async (silent = false) => {
     if (!id) return;
@@ -177,9 +181,10 @@ export default function ClientProfilePage() {
   };
 
   const handleAddNote = async () => {
-    if (!id || !newNote.trim()) return;
-    await clientApi.addNote(id, newNote.trim());
-    setNewNote('');
+    if (!id || !newNoteTitle.trim()) return;
+    await clientApi.addNote(id, newNoteTitle.trim(), newNoteDescription.trim() || undefined);
+    setNewNoteTitle('');
+    setNewNoteDescription('');
     setToast('Note added');
     load();
   };
@@ -189,6 +194,30 @@ export default function ClientProfilePage() {
     await clientApi.deleteNote(id, noteId);
     setToast('Note deleted');
     load();
+  };
+
+  const toggleViewNote = (noteId: string) => {
+    setEditingNoteId(null);
+    setViewingNoteId((prev) => (prev === noteId ? null : noteId));
+  };
+
+  const startEditNote = (note: { id: string; title: string | null; content: string }) => {
+    setViewingNoteId(null);
+    setEditingNoteId(note.id);
+    setEditNoteTitle(note.title || '');
+    setEditNoteDescription(note.content || '');
+  };
+
+  const cancelEditNote = () => {
+    setEditingNoteId(null);
+  };
+
+  const saveEditNote = async () => {
+    if (!id || !editingNoteId || !editNoteTitle.trim()) return;
+    await clientApi.updateNote(id, editingNoteId, editNoteTitle.trim(), editNoteDescription.trim() || undefined);
+    setEditingNoteId(null);
+    setToast('Note updated');
+    load(true);
   };
 
   const handleStatusChange = async (status: string) => {
@@ -202,7 +231,7 @@ export default function ClientProfilePage() {
   if (error && !profile) return <div className="text-center text-red-500 py-12 text-sm">{error}</div>;
   if (!profile) return null;
 
-  const { client: c, assessment: a, medical_history: m, notes, progress_photos, lab_reports, timeline, communications, tags } = profile;
+  const { client: c, assessment: a, medical_history: m, notes, progress_photos, lab_reports, timeline, tags } = profile;
 
   return (
     <div>
@@ -221,7 +250,7 @@ export default function ClientProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusSelector status={c.status} onChange={handleStatusChange} />
-        {!editing && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && tab !== 'Communication' && (
+        {!editing && tab !== 'Progress' && tab !== 'Notes' && tab !== 'Timeline' && (
           <button onClick={startEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Edit</button>
         )}
         {editing && (
@@ -368,28 +397,85 @@ export default function ClientProfilePage() {
 
       {tab === 'Timeline' && <TimelineSection events={timeline} />}
 
-      {tab === 'Communication' && (
-        <>
-          <CommunicationLog clientId={id!} entries={communications || []} onChanged={() => { setToast('Communication updated'); load(true); }} />
-        </>
-      )}
-
       {tab === 'Notes' && (
         <>
           <ClientTagsEditor clientId={id!} tags={tags || []} onChanged={() => load(true)} />
           <Section title="Private Dietitian Notes">
-          <div className="mb-4">
-            <TextArea rows={3} placeholder="Add a private note..." value={newNote} onChange={(e) => setNewNote(e.target.value)} />
-            <button onClick={handleAddNote} disabled={!newNote.trim()} className="mt-2 px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Add Note</button>
+          <div className="mb-4 space-y-3">
+            <Field label="Title">
+              <TextInput placeholder="Note title" value={newNoteTitle} onChange={(e) => setNewNoteTitle(e.target.value)} />
+            </Field>
+            <Field label="Description">
+              <TextArea rows={4} placeholder="Add details..." value={newNoteDescription} onChange={(e) => setNewNoteDescription(e.target.value)} />
+            </Field>
+            <button onClick={handleAddNote} disabled={!newNoteTitle.trim()} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Save</button>
           </div>
           <div className="space-y-3">
             {notes.length === 0 ? <p className="text-sm text-slate-400">No notes yet.</p> : notes.map((n) => (
               <div key={n.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
-                <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{n.content}</p>
-                <div className="flex items-center justify-between mt-2">
-                  <span className="text-xs text-slate-400">{new Date(n.created_at).toLocaleString()}</span>
-                  <button onClick={() => handleDeleteNote(n.id)} className="text-red-500 hover:text-red-600 font-medium text-xs">Delete</button>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-900 dark:text-white">{n.title || 'Untitled'}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => toggleViewNote(n.id)}
+                      title="View"
+                      aria-label="View note"
+                      className="p-1.5 rounded text-slate-500 hover:text-teal-600 hover:bg-white dark:hover:bg-slate-900"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => startEditNote(n)}
+                      title="Edit"
+                      aria-label="Edit note"
+                      className="p-1.5 rounded text-slate-500 hover:text-teal-600 hover:bg-white dark:hover:bg-slate-900"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                        <path d="m15 5 4 4" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteNote(n.id)}
+                      title="Delete"
+                      aria-label="Delete note"
+                      className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-white dark:hover:bg-slate-900"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                        <path d="M3 6h18" />
+                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" />
+                        <path d="M14 11v6" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
+
+                {viewingNoteId === n.id && editingNoteId !== n.id && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{n.content || 'No description'}</p>
+                    <span className="block mt-2 text-xs text-slate-400">{new Date(n.created_at).toLocaleString()}</span>
+                  </div>
+                )}
+
+                {editingNoteId === n.id && (
+                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-3">
+                    <Field label="Title">
+                      <TextInput value={editNoteTitle} onChange={(e) => setEditNoteTitle(e.target.value)} />
+                    </Field>
+                    <Field label="Description">
+                      <TextArea rows={4} value={editNoteDescription} onChange={(e) => setEditNoteDescription(e.target.value)} />
+                    </Field>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={cancelEditNote} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Cancel</button>
+                      <button onClick={saveEditNote} disabled={!editNoteTitle.trim()} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Save</button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

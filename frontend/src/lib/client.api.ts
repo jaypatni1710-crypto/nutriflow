@@ -64,11 +64,11 @@ export const clientApi = {
   deleteLabReport: (id: string, reportId: string) =>
     request<{ success: boolean }>(`/${id}/lab-reports/${reportId}`, { method: 'DELETE' }),
 
-  addNote: (id: string, content: string) =>
-    request<{ success: boolean; data: any }>(`/${id}/notes`, { method: 'POST', body: JSON.stringify({ content }) }),
+  addNote: (id: string, title: string, content?: string) =>
+    request<{ success: boolean; data: any }>(`/${id}/notes`, { method: 'POST', body: JSON.stringify({ title, content }) }),
 
-  updateNote: (id: string, noteId: string, content: string) =>
-    request<{ success: boolean; data: any }>(`/${id}/notes/${noteId}`, { method: 'PUT', body: JSON.stringify({ content }) }),
+  updateNote: (id: string, noteId: string, title: string, content?: string) =>
+    request<{ success: boolean; data: any }>(`/${id}/notes/${noteId}`, { method: 'PUT', body: JSON.stringify({ title, content }) }),
 
   deleteNote: (id: string, noteId: string) =>
     request<{ success: boolean }>(`/${id}/notes/${noteId}`, { method: 'DELETE' }),

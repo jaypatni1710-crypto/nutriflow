@@ -201,7 +201,8 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   router.post('/:id/notes', zValidator('json', createNoteSchema), async (c) => {
     try {
       if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
-      const note = await clientService.addNote(c.req.param('id'), c.get('user').sub, (c.req.valid('json') as any).content);
+      const body = c.req.valid('json') as any;
+      const note = await clientService.addNote(c.req.param('id'), c.get('user').sub, body.title, body.content);
       return c.json({ success: true, message: 'Note added', data: note }, 201);
     } catch (err) {
       return c.json({ success: false, message: 'Failed to add note' }, 500);
@@ -211,7 +212,8 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
   router.put('/:id/notes/:noteId', zValidator('json', createNoteSchema), async (c) => {
     try {
       if (!(await assertOwnership(c))) return c.json({ success: false, message: 'Client not found' }, 404);
-      const note = await clientService.updateNote(c.req.param('id'), c.req.param('noteId'), (c.req.valid('json') as any).content);
+      const body = c.req.valid('json') as any;
+      const note = await clientService.updateNote(c.req.param('id'), c.req.param('noteId'), body.title, body.content);
       if (!note) return c.json({ success: false, message: 'Note not found' }, 404);
       return c.json({ success: true, message: 'Note updated', data: note });
     } catch (err) {
