@@ -567,6 +567,14 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
+  async getMaxMonthlyPhotoNumber(clientId: string) {
+    const res = await this.db.query(
+      `SELECT COALESCE(MAX(month_number), 0)::int AS max FROM client_progress_photos WHERE client_id = $1 AND photo_type = 'monthly'`,
+      [clientId]
+    );
+    return res.rows[0].max as number;
+  }
+
   async getProgressPhotoById(clientId: string, photoId: string) {
     const res = await this.db.query(
       `SELECT * FROM client_progress_photos WHERE id = $1 AND client_id = $2`,

@@ -230,6 +230,10 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
 
   const before = photos.find((p) => p.photo_type === 'before') || null;
   const monthly = photos.filter((p) => p.photo_type === 'monthly').sort((a, b) => (a.month_number ?? 0) - (b.month_number ?? 0));
+  // Matches the backend's numbering rule exactly: the next upload always gets
+  // (highest existing month_number) + 1, never a count-based guess. This keeps
+  // the empty-slot placeholder label accurate even after a mid-sequence delete.
+  const nextMonthNumber = monthly.reduce((max, p) => Math.max(max, p.month_number ?? 0), 0) + 1;
 
   const handleUpload = async (photoType: 'before' | 'monthly', file: File) => {
     setUploading(photoType);
@@ -286,8 +290,8 @@ export function ProgressPhotosSection({ clientId, photos, onChanged }: { clientI
         ))}
         {monthly.length < 3 && (
           <PhotoSlot
-            key={`monthly-slot-${monthly.length + 1}`}
-            label={`Month ${monthly.length + 1}`}
+            key={`monthly-slot-${nextMonthNumber}`}
+            label={`Month ${nextMonthNumber}`}
             photo={null}
             clientId={clientId}
             uploading={uploading === 'monthly'}

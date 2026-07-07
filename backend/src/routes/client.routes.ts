@@ -420,7 +420,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
             }
           }
         }
-        monthNumber = (await clientService.countMonthlyPhotos(clientId)) + 1;
+        monthNumber = (await clientService.getMaxMonthlyPhotoNumber(clientId)) + 1;
       }
 
       const filePath = await uploadToR2(bucket, 'progress-photos', file);
