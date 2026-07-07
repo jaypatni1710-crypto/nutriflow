@@ -11,13 +11,13 @@ import { createAppointmentRouter } from './routes/appointment.routes';
 import { PushService } from './services/push.service';
 import { createPushRouter } from './routes/push.routes';
 import { runAppointmentReminderCheck } from './scheduled/appointment-reminders';
+import { DietPlanService } from './services/diet-plan.service';
+import { createDietPlanRouter } from './routes/diet-plan.routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Security headers (replaces helmet)
 app.use('*', secureHeaders());
 
-// CORS — supports localhost, explicit FRONTEND_URL list, and Codespaces
 app.use('*', async (c, next) => {
   const allowedOrigins = (c.env.FRONTEND_URL || 'http://localhost:3000,http://localhost:5173')
     .split(',')
@@ -26,16 +26,12 @@ app.use('*', async (c, next) => {
   return cors({
     origin: (origin) => {
       if (!origin) return origin;
-      // Always allow localhost for local dev
       if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
         return origin;
       }
-      // Always allow GitHub Codespaces forwarded ports (*.app.github.dev)
       if (origin.endsWith('.app.github.dev')) {
         return origin;
       }
-      // Check explicit allow-list
-      // Check explicit allow-list
       if (allowedOrigins.some((allowed) => origin === allowed)) {
         return origin;
       }
@@ -45,15 +41,8 @@ app.use('*', async (c, next) => {
   })(c, next);
 });
 
-// Health check
 app.get('/health', (c) => c.json({ status: 'ok' }));
 
-// Mount routers — services are created per-request so the env bindings are available.
-// We can't use app.route() here because the sub-app depends on env (DB pool, JWT
-// secret, etc.) which is only available once a request comes in, not at module
-// load time. Instead we build the real Hono sub-app per request and delegate to
-// it with the mount-point prefix stripped off the URL (this is what app.route()
-// does internally for a statically-known sub-app).
 function delegate(prefix: string, buildRouter: (env: Env) => Hono<any>) {
   return (c: any) => {
     const router = buildRouter(c.env);
@@ -98,10 +87,14 @@ app.all('/api/push/*', delegate('/api/push', (env) => {
   return createPushRouter(pushService, env.VAPID_PUBLIC_KEY);
 }));
 
-// 404 handler
+app.all('/api/diet-plans/*', delegate('/api/diet-plans', (env) => {
+  const db = getDb(env);
+  const dietPlanService = new DietPlanService(db);
+  return createDietPlanRouter(dietPlanService);
+}));
+
 app.notFound((c) => c.json({ success: false, message: 'Not found' }, 404));
 
-// Error handler
 app.onError((err, c) => {
   console.error('Unhandled Worker error:', err);
   return c.json({ success: false, message: 'Internal server error' }, 500);
@@ -109,9 +102,6 @@ app.onError((err, c) => {
 
 export default {
   fetch: app.fetch,
-  // Fired by the Cron Trigger in wrangler.toml (every minute). Checks for
-  // appointments starting in ~10 minutes and pushes a reminder to the
-  // dietitian who owns them.
   scheduled: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runAppointmentReminderCheck(env));
   },

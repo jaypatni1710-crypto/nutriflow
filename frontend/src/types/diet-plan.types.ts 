@@ -1,0 +1,31 @@
+export interface DietPlan {
+  id: string;
+  client_id: string;
+  client_name: string;
+  dietitian_id: string;
+  plan_number: number;
+  goal: string | null;
+  morning: string | null;
+  breakfast: string | null;
+  mid_morning: string | null;
+  lunch: string | null;
+  evening_snacks: string | null;
+  dinner: string | null;
+  bed_time: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DietPlanInput {
+  client_id: string;
+  goal: string;
+  morning: string;
+  breakfast: string;
+  mid_morning: string;
+  lunch: string;
+  evening_snacks: string;
+  dinner: string;
+  bed_time: string;
+  note: string;
+}
