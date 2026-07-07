@@ -54,6 +54,16 @@ function todayDateKey() {
   return toDateKey(t.getFullYear(), t.getMonth(), t.getDate());
 }
 
+// Sorts appointments by their start time (earliest first)
+function sortByTime(appts: Appointment[]): Appointment[] {
+  return [...appts].sort((a, b) => a.timeFrom.localeCompare(b.timeFrom));
+}
+
+// Returns true if [aStart, aEnd) overlaps [bStart, bEnd)
+function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  return aStart < bEnd && bStart < aEnd;
+}
+
 function SettingsModal({
   initial,
   onClose,
@@ -145,11 +155,13 @@ function SettingsModal({
 function AddAppointmentModal({
   date,
   initial,
+  allAppointments,
   onClose,
   onSave,
 }: {
   date: Date | null;
   initial: Appointment | null;
+  allAppointments: Appointment[];
   onClose: () => void;
   onSave: (appt: Omit<Appointment, 'id'>) => void;
 }) {
@@ -191,7 +203,23 @@ function AddAppointmentModal({
   };
 
   const isPastDate = apptDate !== '' && apptDate < todayKey;
-  const canSave = clientId && apptDate && !isPastDate && timeFrom && timeTo;
+
+  // Find any existing appointment on the same date (excluding the one being edited)
+  // whose time range overlaps with the one currently being entered.
+  const overlappingAppt = useMemo(() => {
+    if (!apptDate || !timeFrom || !timeTo) return null;
+    return allAppointments.find(
+      (a) =>
+        a.date === apptDate &&
+        a.id !== initial?.id &&
+        timesOverlap(timeFrom, timeTo, a.timeFrom, a.timeTo)
+    ) || null;
+  }, [allAppointments, apptDate, timeFrom, timeTo, initial?.id]);
+
+  const isValidTimeRange = timeFrom !== '' && timeTo !== '' && timeFrom < timeTo;
+  const hasOverlap = !!overlappingAppt;
+
+  const canSave = clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -284,6 +312,14 @@ function AddAppointmentModal({
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
+            {!isValidTimeRange && timeFrom && timeTo && (
+              <p className="mt-1 text-xs text-red-500">End time must be after start time.</p>
+            )}
+            {hasOverlap && overlappingAppt && (
+              <p className="mt-1 text-xs text-red-500">
+                This overlaps with {overlappingAppt.clientName}'s appointment ({overlappingAppt.timeFrom} – {overlappingAppt.timeTo}).
+              </p>
+            )}
           </div>
         </div>
 
@@ -308,10 +344,12 @@ function ViewAppointmentModal({
   appt,
   onClose,
   onEdit,
+  onDelete,
 }: {
   appt: Appointment;
   onClose: () => void;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   const meta = STATUS_META[appt.status];
   const dateLabel = new Date(appt.date + 'T00:00:00').toLocaleDateString('en-IN', {
@@ -321,20 +359,19 @@ function ViewAppointmentModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md relative">
-        <div className="absolute top-4 right-4 flex items-center gap-1">
-          <button onClick={onEdit} title="Edit" aria-label="Edit appointment" className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-          </button>
-          <button onClick={onClose} title="Close" aria-label="Close" className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+        {/* Top-right: close only */}
+        <button
+          onClick={onClose}
+          title="Close"
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
 
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 pr-16">Appointment Details</h3>
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 pr-8">Appointment Details</h3>
 
         <div className="space-y-3 text-sm">
           <div>
@@ -357,6 +394,82 @@ function ViewAppointmentModal({
             <p className="text-slate-800 dark:text-slate-100">{appt.timeFrom} – {appt.timeTo}</p>
           </div>
         </div>
+
+        {/* Bottom-right: edit + delete */}
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onEdit}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+            </svg>
+            Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-1.5"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// New: lists all appointments for a given day, sorted by start time
+function DayAppointmentsModal({
+  dateLabel,
+  appts,
+  onClose,
+  onSelect,
+}: {
+  dateLabel: string;
+  appts: Appointment[];
+  onClose: () => void;
+  onSelect: (appt: Appointment) => void;
+}) {
+  const sorted = sortByTime(appts);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md relative max-h-[80vh] flex flex-col">
+        <button
+          onClick={onClose}
+          title="Close"
+          aria-label="Close"
+          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1 pr-8">Appointments</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{dateLabel}</p>
+
+        <div className="space-y-2 overflow-y-auto pr-1">
+          {sorted.map((a) => (
+            <button
+              key={a.id}
+              onClick={() => onSelect(a)}
+              className="w-full text-left px-3 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-between gap-2"
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{a.clientName}</p>
+                <p className="text-xs text-slate-400">{a.timeFrom} – {a.timeTo}</p>
+              </div>
+              <span className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_META[a.status].badge}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_META[a.status].dot}`} />
+                {STATUS_META[a.status].label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -378,6 +491,7 @@ export default function AppointmentsPage() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+  const [viewingDayKey, setViewingDayKey] = useState<string | null>(null);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -404,6 +518,10 @@ export default function AppointmentsPage() {
     setEditingAppt(null);
   };
 
+  const handleDeleteAppointment = (id: string) => {
+    setAppointments((prev) => prev.filter((a) => a.id !== id));
+  };
+
   const appointmentsByDate = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
     appointments.forEach((a) => {
@@ -412,6 +530,11 @@ export default function AppointmentsPage() {
     });
     return map;
   }, [appointments]);
+
+  const viewingDayAppts = viewingDayKey ? appointmentsByDate[viewingDayKey] || [] : [];
+  const viewingDayLabel = viewingDayKey
+    ? new Date(viewingDayKey + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
 
   return (
     <div>
@@ -456,13 +579,15 @@ export default function AppointmentsPage() {
           {cells.map((day, idx) => {
             const isToday = isCurrentMonth && day === today.getDate();
             const dateKey = day ? toDateKey(year, month, day) : '';
-            const dayAppts = day ? appointmentsByDate[dateKey] || [] : [];
+            const dayApptsRaw = day ? appointmentsByDate[dateKey] || [] : [];
+            const dayAppts = sortByTime(dayApptsRaw);
             const isPast = day !== null && dateKey < todayKey;
+            const hasMore = dayAppts.length > 2;
             return (
               <div
                 key={idx}
                 onClick={() => day !== null && !isPast && dayAppts.length === 0 && openAddAppointment(day)}
-                className={`h-16 sm:h-20 flex flex-col items-start justify-start p-2 rounded-lg text-sm overflow-hidden ${
+                className={`h-24 sm:h-28 flex flex-col items-start justify-start p-2 rounded-lg text-sm overflow-hidden ${
                   day === null
                     ? ''
                     : isPast
@@ -479,19 +604,29 @@ export default function AppointmentsPage() {
                       key={a.id}
                       onClick={(e) => { e.stopPropagation(); setViewingAppt(a); }}
                       className={`text-[10px] leading-tight truncate px-1 py-0.5 rounded ${STATUS_META[a.status].badge}`}
-                      title={a.clientName}
+                      title={`${a.timeFrom} – ${a.clientName}`}
                     >
                       {a.clientName}
                     </div>
                   ))}
-                  {dayAppts.length > 2 && <div className="text-[10px] text-slate-400">+{dayAppts.length - 2} more</div>}
+
                   {day !== null && !isPast && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openAddAppointment(day); }}
-                      className={`text-[10px] mt-0.5 ${isToday ? 'text-white/80 hover:text-white' : 'text-teal-600 dark:text-teal-400 hover:underline'}`}
-                    >
-                      + Add
-                    </button>
+                    <div className="flex items-center justify-between gap-1 mt-0.5">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openAddAppointment(day); }}
+                        className={`text-[10px] shrink-0 ${isToday ? 'text-white/80 hover:text-white' : 'text-teal-600 dark:text-teal-400 hover:underline'}`}
+                      >
+                        + Add
+                      </button>
+                      {hasMore && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setViewingDayKey(dateKey); }}
+                          className={`text-[10px] shrink-0 ${isToday ? 'text-white/80 hover:text-white' : 'text-teal-600 dark:text-teal-400 hover:underline'}`}
+                        >
+                          View more
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
@@ -517,6 +652,7 @@ export default function AppointmentsPage() {
         <AddAppointmentModal
           date={selectedDate}
           initial={editingAppt}
+          allAppointments={appointments}
           onClose={() => { setShowAddAppointment(false); setEditingAppt(null); }}
           onSave={handleSaveAppointment}
         />
@@ -531,6 +667,22 @@ export default function AppointmentsPage() {
             setSelectedDate(new Date(viewingAppt.date + 'T00:00:00'));
             setViewingAppt(null);
             setShowAddAppointment(true);
+          }}
+          onDelete={() => {
+            handleDeleteAppointment(viewingAppt.id);
+            setViewingAppt(null);
+          }}
+        />
+      )}
+
+      {viewingDayKey && (
+        <DayAppointmentsModal
+          dateLabel={viewingDayLabel}
+          appts={viewingDayAppts}
+          onClose={() => setViewingDayKey(null)}
+          onSelect={(a) => {
+            setViewingDayKey(null);
+            setViewingAppt(a);
           }}
         />
       )}
