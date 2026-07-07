@@ -10,6 +10,7 @@ export const createAppointmentSchema = z.object({
   appt_date: z.string().regex(dateRegex),
   time_from: z.string().regex(timeRegex),
   time_to: z.string().regex(timeRegex),
+  notes: z.string().max(2000).nullable().optional(),
 });
 
 export const updateAppointmentSchema = createAppointmentSchema.partial();

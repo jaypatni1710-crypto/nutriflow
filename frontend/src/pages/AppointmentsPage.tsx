@@ -36,6 +36,7 @@ interface Appointment {
   date: string;
   timeFrom: string;
   timeTo: string;
+  notes: string;
 }
 
 // ---- API <-> UI mapping helpers ----
@@ -48,6 +49,7 @@ function apiToAppt(a: ApiAppointment): Appointment {
     date: a.appt_date,
     timeFrom: a.time_from,
     timeTo: a.time_to,
+    notes: a.notes ?? '',
   };
 }
 
@@ -59,6 +61,7 @@ function apptToApiBody(a: Omit<Appointment, 'id'>) {
     appt_date: a.date,
     time_from: a.timeFrom,
     time_to: a.timeTo,
+    notes: a.notes ? a.notes : null,
   };
 }
 
@@ -216,6 +219,8 @@ function AddAppointmentModal({
   initial,
   allAppointments,
   durationMinutes,
+  workingStart,
+  workingEnd,
   onClose,
   onSave,
 }: {
@@ -223,6 +228,8 @@ function AddAppointmentModal({
   initial: Appointment | null;
   allAppointments: Appointment[];
   durationMinutes: number | '';
+  workingStart: string;
+  workingEnd: string;
   onClose: () => void;
   onSave: (appt: Omit<Appointment, 'id'>) => void;
 }) {
@@ -238,6 +245,7 @@ function AddAppointmentModal({
   );
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom || '');
   const [timeTo, setTimeTo] = useState(initial?.timeTo || '');
+  const [notes, setNotes] = useState(initial?.notes || '');
   // Tracks whether the "to" time was set by hand — once it has been, we stop
   // auto-filling it from the start time + default duration. Starts false even
   // when editing an existing appointment, so changing the start time still
@@ -297,6 +305,12 @@ function AddAppointmentModal({
   const isValidTimeRange = timeFrom !== '' && timeTo !== '' && timeFrom < timeTo;
   const hasOverlap = !!overlappingAppt;
 
+  // Working-hours check: if working hours are configured, the appointment's
+  // start and end time must both fall inside [workingStart, workingEnd].
+  const hasWorkingHours = !!workingStart && !!workingEnd;
+  const isWithinWorkingHours =
+    !hasWorkingHours || !timeFrom || !timeTo || (timeFrom >= workingStart && timeTo <= workingEnd);
+
   // Other appointments for this SAME client on this SAME date (excluding the one
   // being edited). This is a soft warning only — it does not block saving. The
   // hard block is `hasOverlap` above, which applies to any client's time range.
@@ -309,11 +323,12 @@ function AddAppointmentModal({
 
   const hasSameClientSameDay = sameClientSameDayAppts.length > 0;
 
-  const canSave = clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap;
+  const canSave =
+    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours;
 
   const handleSave = () => {
     if (!canSave) return;
-    onSave({ clientId, clientName: clientQuery, status, date: apptDate, timeFrom, timeTo });
+    onSave({ clientId, clientName: clientQuery, status, date: apptDate, timeFrom, timeTo, notes: notes.trim() });
     onClose();
   };
 
@@ -392,10 +407,17 @@ function AddAppointmentModal({
 
           <div>
             <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Appointment Time</label>
+            {hasWorkingHours && (
+              <p className="mb-1 text-xs text-slate-400">
+                Working hours: {workingStart} – {workingEnd}
+              </p>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="time"
                 value={timeFrom}
+                min={hasWorkingHours ? workingStart : undefined}
+                max={hasWorkingHours ? workingEnd : undefined}
                 onChange={(e) => handleTimeFromChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
@@ -403,6 +425,8 @@ function AddAppointmentModal({
               <input
                 type="time"
                 value={timeTo}
+                min={hasWorkingHours ? workingStart : undefined}
+                max={hasWorkingHours ? workingEnd : undefined}
                 onChange={(e) => handleTimeToChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
@@ -420,6 +444,24 @@ function AddAppointmentModal({
                 This overlaps with {overlappingAppt.clientName}'s appointment ({overlappingAppt.timeFrom} – {overlappingAppt.timeTo}).
               </p>
             )}
+            {!isWithinWorkingHours && (
+              <p className="mt-1 text-xs text-red-500">
+                Appointment must be within working hours ({workingStart} – {workingEnd}).
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
+              Notes <span className="text-slate-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              placeholder="Any additional notes for this appointment..."
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+            />
           </div>
         </div>
 
@@ -493,6 +535,12 @@ function ViewAppointmentModal({
             <p className="text-slate-400 text-xs mb-0.5">Time</p>
             <p className="text-slate-800 dark:text-slate-100">{appt.timeFrom} – {appt.timeTo}</p>
           </div>
+          {appt.notes && (
+            <div>
+              <p className="text-slate-400 text-xs mb-0.5">Notes</p>
+              <p className="text-slate-800 dark:text-slate-100 whitespace-pre-wrap">{appt.notes}</p>
+            </div>
+          )}
         </div>
 
         {/* Bottom-right: edit + delete */}
@@ -827,6 +875,8 @@ export default function AppointmentsPage() {
           initial={editingAppt}
           allAppointments={appointments}
           durationMinutes={settings.durationMinutes}
+          workingStart={settings.workingStart}
+          workingEnd={settings.workingEnd}
           onClose={() => { setShowAddAppointment(false); setEditingAppt(null); }}
           onSave={handleSaveAppointment}
         />

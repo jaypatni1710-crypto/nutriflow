@@ -21,6 +21,7 @@ export interface ApiAppointment {
   appt_date: string;
   time_from: string;
   time_to: string;
+  notes: string | null;
 }
 
 export interface ApiAppointmentSettings {
