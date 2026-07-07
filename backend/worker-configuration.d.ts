@@ -15,4 +15,13 @@ interface Env {
   RESEND_API_KEY: string;
   FRONTEND_URL: string;
   SMTP_FROM: string;
+
+  // Web Push (VAPID) — set via wrangler secret put
+  VAPID_PUBLIC_KEY: string;
+  VAPID_PRIVATE_KEY: string;
+  VAPID_SUBJECT?: string; // e.g. "mailto:you@example.com"
+
+  // Minutes to add to UTC to get the dietitian's local time (IST = 330).
+  // Only needed if you want to override the default.
+  APP_TIMEZONE_OFFSET_MINUTES?: string;
 }

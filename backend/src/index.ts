@@ -8,6 +8,9 @@ import { AppointmentService } from './services/appointment.service';
 import { createAuthRouter } from './routes/auth.routes';
 import { createClientRouter } from './routes/client.routes';
 import { createAppointmentRouter } from './routes/appointment.routes';
+import { PushService } from './services/push.service';
+import { createPushRouter } from './routes/push.routes';
+import { runAppointmentReminderCheck } from './scheduled/appointment-reminders';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -84,6 +87,17 @@ app.all('/api/appointments/*', delegate('/api/appointments', (env) => {
   return createAppointmentRouter(appointmentService);
 }));
 
+app.all('/api/push/*', delegate('/api/push', (env) => {
+  const db = getDb(env);
+  const pushService = new PushService(
+    db,
+    env.VAPID_SUBJECT || 'mailto:noreply@nutriflow.app',
+    env.VAPID_PUBLIC_KEY,
+    env.VAPID_PRIVATE_KEY
+  );
+  return createPushRouter(pushService, env.VAPID_PUBLIC_KEY);
+}));
+
 // 404 handler
 app.notFound((c) => c.json({ success: false, message: 'Not found' }, 404));
 
@@ -93,4 +107,12 @@ app.onError((err, c) => {
   return c.json({ success: false, message: 'Internal server error' }, 500);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Fired by the Cron Trigger in wrangler.toml (every minute). Checks for
+  // appointments starting in ~10 minutes and pushes a reminder to the
+  // dietitian who owns them.
+  scheduled: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(runAppointmentReminderCheck(env));
+  },
+};

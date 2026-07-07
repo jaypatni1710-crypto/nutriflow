@@ -3,6 +3,7 @@ import { clientApi } from '../lib/client.api';
 import { appointmentApi, ApiAppointment, ApiAppointmentSettings } from '../lib/appointment.api';
 import { ClientListItem } from '../types/client.types';
 import { Toast } from '../components/clients/Toast';
+import { usePushNotifications } from '../hooks/usePushNotifications';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
@@ -238,8 +239,10 @@ function AddAppointmentModal({
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom || '');
   const [timeTo, setTimeTo] = useState(initial?.timeTo || '');
   // Tracks whether the "to" time was set by hand — once it has been, we stop
-  // auto-filling it from the start time + default duration.
-  const [timeToTouched, setTimeToTouched] = useState(!!initial);
+  // auto-filling it from the start time + default duration. Starts false even
+  // when editing an existing appointment, so changing the start time still
+  // auto-adjusts the end time (until the user edits it manually).
+  const [timeToTouched, setTimeToTouched] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -293,6 +296,18 @@ function AddAppointmentModal({
 
   const isValidTimeRange = timeFrom !== '' && timeTo !== '' && timeFrom < timeTo;
   const hasOverlap = !!overlappingAppt;
+
+  // Other appointments for this SAME client on this SAME date (excluding the one
+  // being edited). This is a soft warning only — it does not block saving. The
+  // hard block is `hasOverlap` above, which applies to any client's time range.
+  const sameClientSameDayAppts = useMemo(() => {
+    if (!clientId || !apptDate) return [];
+    return allAppointments.filter(
+      (a) => a.clientId === clientId && a.date === apptDate && a.id !== initial?.id
+    );
+  }, [allAppointments, clientId, apptDate, initial?.id]);
+
+  const hasSameClientSameDay = sameClientSameDayAppts.length > 0;
 
   const canSave = clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap;
 
@@ -368,6 +383,11 @@ function AddAppointmentModal({
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
             {isPastDate && <p className="mt-1 text-xs text-red-500">Cannot create an appointment in the past.</p>}
+            {hasSameClientSameDay && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                {clientQuery || 'This client'} already has {sameClientSameDayAppts.length} appointment{sameClientSameDayAppts.length > 1 ? 's' : ''} on this day ({sameClientSameDayAppts.map((a) => `${a.timeFrom}–${a.timeTo}`).join(', ')}). You can still save, just make sure the time doesn't overlap.
+              </p>
+            )}
           </div>
 
           <div>
@@ -444,9 +464,9 @@ function ViewAppointmentModal({
           onClick={onClose}
           title="Close"
           aria-label="Close"
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="absolute top-4 right-4 z-10 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -522,9 +542,9 @@ function DayAppointmentsModal({
           onClick={onClose}
           title="Close"
           aria-label="Close"
-          className="absolute top-4 right-4 p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="absolute top-4 right-4 z-10 p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4.5 h-4.5">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
@@ -574,6 +594,7 @@ export default function AppointmentsPage() {
   const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [viewingDayKey, setViewingDayKey] = useState<string | null>(null);
+  const { isSupported: pushSupported, isEnabled: pushEnabled, loading: pushLoading, enable: enablePush, disable: disablePush } = usePushNotifications();
 
   // Load appointments + settings from the backend once on mount, so they
   // survive a page refresh instead of living only in local component state.
@@ -685,6 +706,24 @@ export default function AppointmentsPage() {
           >
             Add Appointment
           </button>
+
+          {pushSupported && (
+            <button
+              onClick={() => (pushEnabled ? disablePush() : enablePush())}
+              disabled={pushLoading}
+              title={pushEnabled ? 'Appointment reminders on — click to turn off' : 'Turn on appointment reminders (10 min before)'}
+              aria-label="Toggle appointment reminders"
+              className={`p-2.5 rounded-lg border transition-colors disabled:opacity-50 ${pushEnabled
+                  ? 'border-teal-300 dark:border-teal-700 bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400'
+                  : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+              </svg>
+            </button>
+          )}
+
           <button
             onClick={() => setShowSettings(true)}
             title="Settings"
@@ -722,15 +761,14 @@ export default function AppointmentsPage() {
               <div
                 key={idx}
                 onClick={() => day !== null && !isPast && dayAppts.length === 0 && openAddAppointment(day)}
-                className={`h-24 sm:h-28 flex flex-col items-start justify-start p-2 rounded-lg text-sm overflow-hidden ${
-                  day === null
+                className={`h-24 sm:h-28 flex flex-col items-start justify-start p-2 rounded-lg text-sm overflow-hidden ${day === null
                     ? ''
                     : isPast
-                    ? 'bg-slate-50 dark:bg-slate-800/30 text-slate-300 dark:text-slate-600 cursor-not-allowed'
-                    : isToday
-                    ? 'bg-teal-600 text-white font-semibold cursor-pointer hover:bg-teal-700'
-                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                      ? 'bg-slate-50 dark:bg-slate-800/30 text-slate-300 dark:text-slate-600 cursor-not-allowed'
+                      : isToday
+                        ? 'bg-teal-600 text-white font-semibold cursor-pointer hover:bg-teal-700'
+                        : 'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-200 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
               >
                 <span>{day ?? ''}</span>
                 <div className="mt-1 w-full space-y-0.5">
