@@ -8,6 +8,7 @@ import { Toast } from '../components/clients/Toast';
 import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, TimelineSection } from '../components/clients/Enhancements';
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
+import { ClientDietPlanSection } from './DietPlanPage';
 
 const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Appointments', 'Diet Plan', 'Notes', 'Timeline'] as const;
 type Tab = typeof TABS[number];
@@ -405,8 +406,7 @@ export default function ClientProfilePage() {
       )}
 
       {tab === 'Diet Plan' && (
-        <>
-        </>
+        <ClientDietPlanSection clientId={id!} clientName={`${c.first_name} ${c.last_name}`} clientGoal={c.primary_goal || ''} />
       )}
 
       {tab === 'Timeline' && <TimelineSection events={timeline} />}

@@ -5,7 +5,7 @@ import { ClientListItem } from '../types/client.types';
 import { GOAL_OPTIONS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
 
-interface DietPlan {
+export interface DietPlan {
   id: string;
   client_id: string;
   client_name: string;
@@ -192,22 +192,28 @@ export default function DietPlanPage() {
 }
 
 // ---- Add / Edit modal ----
-function DietPlanModal({
+export function DietPlanModal({
   existingPlans,
   initial,
   onClose,
   onSaved,
+  lockedClientId,
+  lockedClientName,
+  initialGoal,
 }: {
   existingPlans: DietPlan[];
   initial: DietPlan | null;
   onClose: () => void;
   onSaved: (plan: DietPlan, wasEdit: boolean) => void;
+  lockedClientId?: string;
+  lockedClientName?: string;
+  initialGoal?: string;
 }) {
-  const [clientQuery, setClientQuery] = useState(initial?.client_name || '');
-  const [clientId, setClientId] = useState(initial?.client_id || '');
+  const [clientQuery, setClientQuery] = useState(initial?.client_name || lockedClientName || '');
+  const [clientId, setClientId] = useState(initial?.client_id || lockedClientId || '');
   const [showDropdown, setShowDropdown] = useState(false);
   const [clients, setClients] = useState<ClientListItem[]>([]);
-  const [goal, setGoal] = useState(initial?.goal || '');
+  const [goal, setGoal] = useState(initial?.goal || initialGoal || '');
   const [note, setNote] = useState(initial?.note || '');
   const [meals, setMeals] = useState<Record<string, string>>(() =>
     Object.fromEntries(MEAL_FIELDS.map((f) => [f.key, (initial?.[f.key] as string) || '']))
@@ -224,14 +230,14 @@ function DietPlanModal({
   }, []);
 
   useEffect(() => {
-    if (initial) return; // don't re-search once editing an existing plan
+    if (initial || lockedClientId) return; // don't search when editing or client is locked
     const q = clientQuery.trim();
     if (!q) { setClients([]); return; }
     const t = setTimeout(() => {
       clientApi.list({ search: q, limit: 8 }).then((res) => setClients(res.data)).catch(() => setClients([]));
     }, 250);
     return () => clearTimeout(t);
-  }, [clientQuery, initial]);
+  }, [clientQuery, initial, lockedClientId]);
 
   const handleSelectClient = (c: ClientListItem) => {
     setClientId(c.id);
@@ -240,19 +246,18 @@ function DietPlanModal({
     setShowDropdown(false);
   };
 
-  // Live plan number preview: count existing plans for this client + 1.
-  // When editing, just show the existing plan's number (it doesn't change).
   const planNumber = initial
     ? initial.plan_number
     : existingPlans.filter((p) => p.client_id === clientId).length + 1;
 
-  const canSave = !!clientId;
+  const requiredMealsFilled = MEAL_FIELDS.every((f) => meals[f.key].trim() !== '');
+  const canSave = !!clientId && !!goal && requiredMealsFilled;
 
   const handleSave = async () => {
     if (!canSave || saving) return;
     setSaving(true);
     try {
-      const body = { client_id: clientId, goal: goal || null, note: note || null, ...meals };
+      const body = { client_id: clientId, goal, note: note || null, ...meals };
       const res = initial
         ? await dietPlanApi.update(initial.id, body)
         : await dietPlanApi.create(body);
@@ -277,7 +282,7 @@ function DietPlanModal({
         </div>
 
         <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1">
-          {!initial && (
+          {!initial && !lockedClientId && (
             <div className="relative" ref={wrapperRef}>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Select Client</label>
               <input
@@ -302,6 +307,15 @@ function DietPlanModal({
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {!initial && lockedClientId && (
+            <div>
+              <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Client</label>
+              <div className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm">
+                {lockedClientName}
+              </div>
             </div>
           )}
 
@@ -366,7 +380,7 @@ const MEAL_COLORS: Record<string, { dot: string; text: string; bg: string }> = {
   bed_time: { dot: 'bg-slate-400', text: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
 };
 
-function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: () => void }) {
+export function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
@@ -377,7 +391,11 @@ function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: () => v
               <p className="text-sm text-slate-500 dark:text-slate-400">Client: {plan.client_name}</p>
               <p className="text-sm text-slate-500 dark:text-slate-400">Created on {formatDate(plan.created_at)}</p>
             </div>
-            <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-800 dark:hover:text-white">Close</button>
+            <button type="button" onClick={onClose} className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:hover:text-white shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -409,11 +427,137 @@ function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: () => v
             })}
           </div>
         </div>
-
-        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200">Close</button>
-        </div>
       </div>
+    </div>
+  );
+}
+
+export function ClientDietPlanSection({ clientId, clientName, clientGoal }: { clientId: string; clientName: string; clientGoal?: string }) {
+  const [plans, setPlans] = useState<DietPlan[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [editTarget, setEditTarget] = useState<DietPlan | null>(null);
+  const [viewTarget, setViewTarget] = useState<DietPlan | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<DietPlan | null>(null);
+
+  const load = () => {
+    setLoading(true);
+    dietPlanApi.list()
+      .then((res) => setPlans(res.data.filter((p) => p.client_id === clientId)))
+      .catch(() => setToast('Failed to load diet plans'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(load, [clientId]);
+
+  const handleSaved = (plan: DietPlan, wasEdit: boolean) => {
+    setPlans((prev) => (wasEdit ? prev.map((p) => (p.id === plan.id ? plan : p)) : [plan, ...prev]));
+    setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
+    setShowModal(false);
+    setEditTarget(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await dietPlanApi.remove(deleteTarget.id);
+      setPlans((prev) =>
+        prev
+          .filter((p) => p.id !== deleteTarget.id)
+          .map((p) => (p.plan_number > deleteTarget.plan_number ? { ...p, plan_number: p.plan_number - 1 } : p))
+      );
+      setToast('Diet plan deleted');
+    } catch {
+      setToast('Failed to delete diet plan');
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-sm font-bold text-slate-900 dark:text-white">Diet Plans</h4>
+        <button
+          onClick={() => { setEditTarget(null); setShowModal(true); }}
+          className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors"
+        >
+          Add Diet Plan
+        </button>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+        {loading ? (
+          <p className="text-sm text-slate-400 text-center py-10">Loading...</p>
+        ) : plans.length === 0 ? (
+          <p className="text-sm text-slate-400 text-center py-10">No diet plans yet. Click "Add Diet Plan" to create one.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-500 dark:text-slate-400">
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Date Created</th>
+                <th className="px-4 py-3">Goal</th>
+                <th className="px-4 py-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.map((p) => (
+                <tr key={p.id} className="border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                  <td className="px-4 py-3 text-slate-900 dark:text-white font-medium">#{p.plan_number}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(p.created_at)}</td>
+                  <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.goal || '—'}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setViewTarget(p)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="View">
+                        <EyeIcon />
+                      </button>
+                      <button onClick={() => { setEditTarget(p); setShowModal(true); }} className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400" title="Edit">
+                        <PencilIcon />
+                      </button>
+                      <button onClick={() => setDeleteTarget(p)} className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500" title="Delete">
+                        <TrashIcon />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {showModal && (
+        <DietPlanModal
+          existingPlans={plans}
+          initial={editTarget}
+          lockedClientId={clientId}
+          lockedClientName={clientName}
+          initialGoal={clientGoal}
+          onClose={() => { setShowModal(false); setEditTarget(null); }}
+          onSaved={handleSaved}
+        />
+      )}
+
+      {viewTarget && <ViewDietPlanModal plan={viewTarget} onClose={() => setViewTarget(null)} />}
+
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">Delete diet plan?</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+              This will permanently delete Diet Plan #{deleteTarget.plan_number}. This cannot be undone.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteTarget(null)} className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200">Cancel</button>
+              <button onClick={handleDelete} className="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 text-white hover:bg-red-700">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }
