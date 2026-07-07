@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clientApi } from '../lib/client.api';
+import { appointmentApi, ApiAppointment, ApiAppointmentSettings } from '../lib/appointment.api';
 import { ClientListItem } from '../types/client.types';
+import { Toast } from '../components/clients/Toast';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTH_NAMES = [
@@ -35,6 +37,48 @@ interface Appointment {
   timeTo: string;
 }
 
+// ---- API <-> UI mapping helpers ----
+function apiToAppt(a: ApiAppointment): Appointment {
+  return {
+    id: a.id,
+    clientId: a.client_id,
+    clientName: a.client_name,
+    status: a.status,
+    date: a.appt_date,
+    timeFrom: a.time_from,
+    timeTo: a.time_to,
+  };
+}
+
+function apptToApiBody(a: Omit<Appointment, 'id'>) {
+  return {
+    client_id: a.clientId,
+    client_name: a.clientName,
+    status: a.status,
+    appt_date: a.date,
+    time_from: a.timeFrom,
+    time_to: a.timeTo,
+  };
+}
+
+function settingsToApiBody(s: AppointmentSettings): ApiAppointmentSettings {
+  return {
+    max_per_day: s.maxPerDay === '' ? null : Number(s.maxPerDay),
+    duration_minutes: s.durationMinutes === '' ? null : Number(s.durationMinutes),
+    working_start: s.workingStart || null,
+    working_end: s.workingEnd || null,
+  };
+}
+
+function apiToSettings(s: ApiAppointmentSettings): AppointmentSettings {
+  return {
+    maxPerDay: s.max_per_day ?? '',
+    durationMinutes: s.duration_minutes ?? '',
+    workingStart: s.working_start ?? '',
+    workingEnd: s.working_end ?? '',
+  };
+}
+
 function buildCalendarGrid(year: number, month: number): (number | null)[] {
   const firstDayIndex = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -62,6 +106,17 @@ function sortByTime(appts: Appointment[]): Appointment[] {
 // Returns true if [aStart, aEnd) overlaps [bStart, bEnd)
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return aStart < bEnd && bStart < aEnd;
+}
+
+// Adds `minutes` to a "HH:MM" time string, capped at 23:59 (same day).
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return '';
+  let total = h * 60 + m + minutes;
+  total = Math.min(total, 23 * 60 + 59);
+  const newH = Math.floor(total / 60);
+  const newM = total % 60;
+  return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
 }
 
 function SettingsModal({
@@ -103,7 +158,7 @@ function SettingsModal({
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
-              Appointment Duration (minutes) <span className="text-slate-400 font-normal">(optional)</span>
+              Minimum Appointment Duration (minutes) <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <input
               type="number"
@@ -114,6 +169,9 @@ function SettingsModal({
               placeholder="e.g. 30"
               className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
+            <p className="mt-1 text-xs text-slate-400">
+              When set, the end time will auto-fill this many minutes after the start time when creating an appointment. You can still edit it manually.
+            </p>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -156,12 +214,14 @@ function AddAppointmentModal({
   date,
   initial,
   allAppointments,
+  durationMinutes,
   onClose,
   onSave,
 }: {
   date: Date | null;
   initial: Appointment | null;
   allAppointments: Appointment[];
+  durationMinutes: number | '';
   onClose: () => void;
   onSave: (appt: Omit<Appointment, 'id'>) => void;
 }) {
@@ -177,6 +237,9 @@ function AddAppointmentModal({
   );
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom || '');
   const [timeTo, setTimeTo] = useState(initial?.timeTo || '');
+  // Tracks whether the "to" time was set by hand — once it has been, we stop
+  // auto-filling it from the start time + default duration.
+  const [timeToTouched, setTimeToTouched] = useState(!!initial);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -200,6 +263,18 @@ function AddAppointmentModal({
     setClientId(c.id);
     setClientQuery(`${c.first_name} ${c.last_name}`);
     setShowDropdown(false);
+  };
+
+  const handleTimeFromChange = (value: string) => {
+    setTimeFrom(value);
+    if (!timeToTouched && durationMinutes !== '' && value) {
+      setTimeTo(addMinutesToTime(value, Number(durationMinutes)));
+    }
+  };
+
+  const handleTimeToChange = (value: string) => {
+    setTimeTo(value);
+    setTimeToTouched(true);
   };
 
   const isPastDate = apptDate !== '' && apptDate < todayKey;
@@ -301,17 +376,22 @@ function AddAppointmentModal({
               <input
                 type="time"
                 value={timeFrom}
-                onChange={(e) => setTimeFrom(e.target.value)}
+                onChange={(e) => handleTimeFromChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
               <span className="text-slate-400 text-sm shrink-0">to</span>
               <input
                 type="time"
                 value={timeTo}
-                onChange={(e) => setTimeTo(e.target.value)}
+                onChange={(e) => handleTimeToChange(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
               />
             </div>
+            {durationMinutes !== '' && !timeToTouched && (
+              <p className="mt-1 text-xs text-slate-400">
+                End time auto-fills {durationMinutes} min after start — feel free to adjust it.
+              </p>
+            )}
             {!isValidTimeRange && timeFrom && timeTo && (
               <p className="mt-1 text-xs text-red-500">End time must be after start time.</p>
             )}
@@ -487,11 +567,33 @@ export default function AppointmentsPage() {
     workingEnd: '',
   });
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState('');
   const [showAddAppointment, setShowAddAppointment] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [viewingAppt, setViewingAppt] = useState<Appointment | null>(null);
   const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
   const [viewingDayKey, setViewingDayKey] = useState<string | null>(null);
+
+  // Load appointments + settings from the backend once on mount, so they
+  // survive a page refresh instead of living only in local component state.
+  useEffect(() => {
+    (async () => {
+      try {
+        const [apptRes, settingsRes] = await Promise.all([
+          appointmentApi.list(),
+          appointmentApi.getSettings(),
+        ]);
+        setAppointments(apptRes.data.map(apiToAppt));
+        setSettings(apiToSettings(settingsRes.data));
+      } catch (err) {
+        console.error(err);
+        setToast('Failed to load appointments');
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
@@ -509,17 +611,46 @@ export default function AppointmentsPage() {
     setShowAddAppointment(true);
   };
 
-  const handleSaveAppointment = (data: Omit<Appointment, 'id'>) => {
-    if (editingAppt) {
-      setAppointments((prev) => prev.map((a) => (a.id === editingAppt.id ? { ...data, id: editingAppt.id } : a)));
-    } else {
-      setAppointments((prev) => [...prev, { ...data, id: crypto.randomUUID() }]);
+  const handleSaveAppointment = async (data: Omit<Appointment, 'id'>) => {
+    try {
+      if (editingAppt) {
+        const res = await appointmentApi.update(editingAppt.id, apptToApiBody(data));
+        const updated = apiToAppt(res.data);
+        setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+        setToast('Appointment updated');
+      } else {
+        const res = await appointmentApi.create(apptToApiBody(data));
+        const created = apiToAppt(res.data);
+        setAppointments((prev) => [...prev, created]);
+        setToast('Appointment created');
+      }
+    } catch (err) {
+      console.error(err);
+      setToast('Failed to save appointment');
     }
     setEditingAppt(null);
   };
 
-  const handleDeleteAppointment = (id: string) => {
-    setAppointments((prev) => prev.filter((a) => a.id !== id));
+  const handleDeleteAppointment = async (id: string) => {
+    try {
+      await appointmentApi.remove(id);
+      setAppointments((prev) => prev.filter((a) => a.id !== id));
+      setToast('Appointment deleted');
+    } catch (err) {
+      console.error(err);
+      setToast('Failed to delete appointment');
+    }
+  };
+
+  const handleSaveSettings = async (s: AppointmentSettings) => {
+    setSettings(s);
+    try {
+      await appointmentApi.saveSettings(settingsToApiBody(s));
+      setToast('Settings saved');
+    } catch (err) {
+      console.error(err);
+      setToast('Failed to save settings');
+    }
   };
 
   const appointmentsByDate = useMemo(() => {
@@ -535,6 +666,10 @@ export default function AppointmentsPage() {
   const viewingDayLabel = viewingDayKey
     ? new Date(viewingDayKey + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
     : '';
+
+  if (loading) {
+    return <div className="text-sm text-slate-500 dark:text-slate-400">Loading appointments…</div>;
+  }
 
   return (
     <div>
@@ -645,7 +780,7 @@ export default function AppointmentsPage() {
       </div>
 
       {showSettings && (
-        <SettingsModal initial={settings} onClose={() => setShowSettings(false)} onSave={(s) => setSettings(s)} />
+        <SettingsModal initial={settings} onClose={() => setShowSettings(false)} onSave={handleSaveSettings} />
       )}
 
       {showAddAppointment && (
@@ -653,6 +788,7 @@ export default function AppointmentsPage() {
           date={selectedDate}
           initial={editingAppt}
           allAppointments={appointments}
+          durationMinutes={settings.durationMinutes}
           onClose={() => { setShowAddAppointment(false); setEditingAppt(null); }}
           onSave={handleSaveAppointment}
         />
@@ -686,6 +822,8 @@ export default function AppointmentsPage() {
           }}
         />
       )}
+
+      {toast && <Toast message={toast} onClose={() => setToast('')} />}
     </div>
   );
 }
