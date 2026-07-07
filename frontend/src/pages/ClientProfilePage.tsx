@@ -169,6 +169,10 @@ export default function ClientProfilePage() {
       ['height_cm', 'current_weight_kg'].forEach((k) => {
         if (payload[k] === '') delete payload[k];
       });
+      // Enum fields: backend rejects '' since it must match the enum exactly if present
+      ['gender', 'activity_level', 'stress_level'].forEach((k) => {
+        if (payload[k] === '') delete payload[k];
+      });
       await clientApi.update(id, payload);
       setEditing(false);
       setToast('Changes saved');

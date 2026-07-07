@@ -111,8 +111,6 @@ export class ClientService {
     try {
       await conn.query('BEGIN');
 
-      // Lock the dietitian's row so concurrent create-client requests can't both
-      // slip past the limit check at the same time.
       const limitRes = await conn.query(`SELECT client_limit FROM users WHERE id = $1 FOR UPDATE`, [dietitianId]);
       const clientLimit: number | null = limitRes.rows[0]?.client_limit ?? null;
       if (clientLimit !== null) {
@@ -308,7 +306,7 @@ export class ClientService {
     }
     if (aSet.length > 0) {
       aParams.push(clientId);
-      await this.db.query(`INSERT INTO client_assessments (client_id) VALUES ($${aParams.length}) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
+      await this.db.query(`INSERT INTO client_assessments (client_id) VALUES ($1) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
       await this.db.query(`UPDATE client_assessments SET ${aSet.join(', ')} WHERE client_id = $${aParams.length}`, aParams);
     }
 
@@ -331,42 +329,42 @@ export class ClientService {
   }
 
   async deleteClient(dietitianId: string, clientId: string): Promise<{ deleted: boolean; filePaths: string[] }> {
-  const own = await this.db.query(`SELECT id FROM clients WHERE id = $1 AND dietitian_id = $2`, [clientId, dietitianId]);
-  if (own.rows.length === 0) return { deleted: false, filePaths: [] };
+    const own = await this.db.query(`SELECT id FROM clients WHERE id = $1 AND dietitian_id = $2`, [clientId, dietitianId]);
+    if (own.rows.length === 0) return { deleted: false, filePaths: [] };
 
-  const client = await this.db.connect();
-  try {
-    await client.query('BEGIN');
+    const client = await this.db.connect();
+    try {
+      await client.query('BEGIN');
 
-    const filesRes = await client.query(
-      `SELECT file_path FROM client_lab_reports WHERE client_id = $1
-       UNION ALL
-       SELECT file_path FROM client_progress_photos WHERE client_id = $1`,
-      [clientId]
-    );
-    const filePaths: string[] = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
+      const filesRes = await client.query(
+        `SELECT file_path FROM client_lab_reports WHERE client_id = $1
+         UNION ALL
+         SELECT file_path FROM client_progress_photos WHERE client_id = $1`,
+        [clientId]
+      );
+      const filePaths: string[] = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
 
-    await client.query(`DELETE FROM client_assessments WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_medical_history WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_notes WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_tags WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_communications WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_food_frequency WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_progress_logs WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_lab_reports WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_progress_photos WHERE client_id = $1`, [clientId]);
-    await client.query(`DELETE FROM client_timeline WHERE client_id = $1`, [clientId]);
-    const res = await client.query(`DELETE FROM clients WHERE id = $1 AND dietitian_id = $2`, [clientId, dietitianId]);
+      await client.query(`DELETE FROM client_assessments WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_medical_history WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_notes WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_tags WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_communications WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_food_frequency WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_progress_logs WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_lab_reports WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_progress_photos WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM client_timeline WHERE client_id = $1`, [clientId]);
+      const res = await client.query(`DELETE FROM clients WHERE id = $1 AND dietitian_id = $2`, [clientId, dietitianId]);
 
-    await client.query('COMMIT');
-    return { deleted: (res.rowCount ?? 0) > 0, filePaths };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
+      await client.query('COMMIT');
+      return { deleted: (res.rowCount ?? 0) > 0, filePaths };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
-}
 
   async addNote(clientId: string, dietitianId: string, title: string, content?: string) {
     const res = await this.db.query(
