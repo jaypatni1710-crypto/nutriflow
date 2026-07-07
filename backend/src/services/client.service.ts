@@ -242,7 +242,7 @@ export class ClientService {
     const setClauses: string[] = [];
     const params: any[] = [];
     for (const [k, v] of Object.entries(clientFields)) {
-      if (v !== undefined) { params.push(v); setClauses.push(`${k} = $${params.length}`); }
+      if (v !== undefined) { const val = v === '' ? null : v; params.push(val); setClauses.push(`${k} = $${params.length}`); }
     }
     if (setClauses.length > 0) {
       params.push(clientId);
@@ -302,7 +302,7 @@ export class ClientService {
     const aSet: string[] = [];
     const aParams: any[] = [];
     for (const [k, v] of Object.entries(assessmentFields)) {
-      if (v !== undefined) { aParams.push(v); aSet.push(`${k} = $${aParams.length}`); }
+      if (v !== undefined) { const val = v === '' ? null : v; aParams.push(val); aSet.push(`${k} = $${aParams.length}`); }
     }
     if (aSet.length > 0) {
       aParams.push(clientId);
