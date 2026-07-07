@@ -9,7 +9,7 @@ import { StatusBadge, StatusSelector, ProgressPhotosSection, LabReportsSection, 
 import { ClientTagsEditor } from '../components/clients/ClientTags';
 import { AssessmentCompletionBar, EnhancedSummaryCard } from '../components/clients/ClientExtras';
 
-const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Diet Plan', 'Appointments', 'Notes', 'Timeline'] as const;
+const TABS = ['Overview', 'Assessment', 'Medical History', 'Progress', 'Appointments', 'Diet Plan', 'Notes', 'Timeline'] as const;
 type Tab = typeof TABS[number];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -399,12 +399,12 @@ export default function ClientProfilePage() {
         </>
       )}
 
-      {tab === 'Diet Plan' && (
+      {tab === 'Appointments' && (
         <>
         </>
       )}
 
-      {tab === 'Appointments' && (
+      {tab === 'Diet Plan' && (
         <>
         </>
       )}

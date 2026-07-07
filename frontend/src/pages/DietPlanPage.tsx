@@ -1,10 +1,26 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { clientApi } from '../lib/client.api';
 import { dietPlanApi } from '../lib/diet-plan.api';
 import { ClientListItem } from '../types/client.types';
-import { DietPlan } from '../types/diet-plan.types';
 import { GOAL_OPTIONS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
+
+interface DietPlan {
+  id: string;
+  client_id: string;
+  client_name: string;
+  plan_number: number;
+  created_at: string;
+  goal: string | null;
+  note: string | null;
+  morning: string | null;
+  breakfast: string | null;
+  mid_morning: string | null;
+  lunch: string | null;
+  evening_snacks: string | null;
+  dinner: string | null;
+  bed_time: string | null;
+}
 
 const MEAL_FIELDS: { key: keyof DietPlan; label: string }[] = [
   { key: 'morning', label: 'Morning' },
@@ -340,32 +356,61 @@ function DietPlanModal({
   );
 }
 
-// ---- Read-only view modal ----
+const MEAL_COLORS: Record<string, { dot: string; text: string; bg: string }> = {
+  morning: { dot: 'bg-amber-400', text: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+  breakfast: { dot: 'bg-orange-400', text: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-500/10' },
+  mid_morning: { dot: 'bg-lime-400', text: 'text-lime-600 dark:text-lime-400', bg: 'bg-lime-50 dark:bg-lime-500/10' },
+  lunch: { dot: 'bg-teal-400', text: 'text-teal-600 dark:text-teal-400', bg: 'bg-teal-50 dark:bg-teal-500/10' },
+  evening_snacks: { dot: 'bg-purple-400', text: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
+  dinner: { dot: 'bg-indigo-400', text: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-500/10' },
+  bed_time: { dot: 'bg-slate-400', text: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
+};
+
 function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-lg my-auto">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Diet Plan #{plan.plan_number}</h3>
-        <p className="text-sm text-teal-600 dark:text-teal-400 font-medium mb-4">{plan.client_name}</p>
-
-        <div className="space-y-3 max-h-[65vh] overflow-y-auto pr-1">
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Goal</p>
-            <p className="text-sm text-slate-900 dark:text-white">{plan.goal || '—'}</p>
-          </div>
-          {MEAL_FIELDS.map((f) => (
-            <div key={f.key}>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{f.label}</p>
-              <p className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">{(plan[f.key] as string) || '—'}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden shadow-2xl">
+        <div className="px-6 py-6 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Diet Plan #{plan.plan_number}</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Client: {plan.client_name}</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Created on {formatDate(plan.created_at)}</p>
             </div>
-          ))}
-          <div>
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Note</p>
-            <p className="text-sm text-slate-900 dark:text-white whitespace-pre-wrap">{plan.note || '—'}</p>
+            <button type="button" onClick={onClose} className="text-slate-500 hover:text-slate-800 dark:hover:text-white">Close</button>
           </div>
         </div>
 
-        <div className="flex justify-end mt-5">
+        <div className="space-y-4 px-6 py-6 overflow-y-auto max-h-[70vh]">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800 p-4">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Goal</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{plan.goal || '—'}</p>
+            </div>
+            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800 p-4">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">Note</h4>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{plan.note || '—'}</p>
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            {MEAL_FIELDS.map((field) => {
+              const value = plan[field.key] || '—';
+              const color = MEAL_COLORS[field.key] || MEAL_COLORS.bed_time;
+              return (
+                <div key={field.key} className={`rounded-2xl p-4 ${color.bg}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`inline-flex h-2.5 w-2.5 rounded-full ${color.dot}`} />
+                    <h4 className={`text-sm font-semibold ${color.text}`}>{field.label}</h4>
+                  </div>
+                  <div className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">{value}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-200 dark:border-slate-800 flex justify-end">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200">Close</button>
         </div>
       </div>
