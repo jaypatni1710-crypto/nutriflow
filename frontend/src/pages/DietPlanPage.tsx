@@ -247,18 +247,20 @@ function DietPlanModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-8 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-lg my-auto">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
-          {initial ? 'Edit Diet Plan' : 'Add Diet Plan'}
-        </h3>
-        {clientId && (
-          <p className="text-sm text-teal-600 dark:text-teal-400 font-medium mb-4">
-            Diet Plan #{planNumber} for {clientQuery}
-          </p>
-        )}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col shadow-2xl">
+        <div className="px-6 pt-6 pb-1 shrink-0">
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+            {initial ? 'Edit Diet Plan' : 'Add Diet Plan'}
+          </h3>
+          {clientId && (
+            <p className="text-sm text-teal-600 dark:text-teal-400 font-medium mb-1">
+              Diet Plan #{planNumber} for {clientQuery}
+            </p>
+          )}
+        </div>
 
-        <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-1">
+        <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1">
           {!initial && (
             <div className="relative" ref={wrapperRef}>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Select Client</label>
@@ -323,7 +325,7 @@ function DietPlanModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-5">
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100 dark:border-slate-800 shrink-0">
           <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm font-semibold border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200">Cancel</button>
           <button
             onClick={handleSave}
