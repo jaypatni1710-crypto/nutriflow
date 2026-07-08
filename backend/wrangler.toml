@@ -27,11 +27,11 @@ id = "5f96139c3d534e02833a252c053ffc83"
 # Secrets — set via: wrangler secret put JWT_SECRET (only needed before deploying)
 # Required secrets:
 #   JWT_SECRET        - at least 32 chars
-#   RESEND_API_KEY    - from resend.com (free tier: 3000 emails/month)
+#   BREVO_API_KEY     - from brevo.com (free tier: 300 emails/day, verify a sender email, no domain needed)
 #   FRONTEND_URL      - e.g. https://nutriflow.pages.dev
 
 [vars]
-SMTP_FROM = "onboarding@resend.dev"
+SMTP_FROM = "jaypatni291103@gmail.com"
 
 # Runs every minute so the 10-minutes-before-appointment reminder fires on time.
 [triggers]
