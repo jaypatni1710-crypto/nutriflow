@@ -341,6 +341,8 @@ export class AuthService {
         );
         filePaths = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
 
+        await client.query(`DELETE FROM diet_plans WHERE client_id = ANY($1)`, [clientIds]);
+        await client.query(`DELETE FROM appointments WHERE client_id = ANY($1)`, [clientIds]);
         await client.query(`DELETE FROM client_assessments WHERE client_id = ANY($1)`, [clientIds]);
         await client.query(`DELETE FROM client_medical_history WHERE client_id = ANY($1)`, [clientIds]);
         await client.query(`DELETE FROM client_notes WHERE client_id = ANY($1)`, [clientIds]);
@@ -354,6 +356,9 @@ export class AuthService {
         await client.query(`DELETE FROM clients WHERE dietitian_id = $1`, [userId]);
       }
 
+      await client.query(`DELETE FROM appointments WHERE dietitian_id = $1`, [userId]);
+      await client.query(`DELETE FROM appointment_settings WHERE dietitian_id = $1`, [userId]);
+      await client.query(`DELETE FROM push_subscriptions WHERE dietitian_id = $1`, [userId]);
       await client.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
       await client.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [userId]);
       await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [userId]);
