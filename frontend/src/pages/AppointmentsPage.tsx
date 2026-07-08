@@ -364,7 +364,7 @@ function AddAppointmentModal({
   const isTagValid = tag !== '' && (tag !== 'other' || tagOther.trim() !== '');
 
   const canSave =
-    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid;
+    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid && !isOverMaxPerDay;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -454,8 +454,8 @@ function AddAppointmentModal({
               </p>
             )}
             {isOverMaxPerDay && (
-              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                This day already has {sameDayAllClientsCount} appointment{sameDayAllClientsCount > 1 ? 's' : ''} booked, at or above your daily limit of {maxPerDay}. You can still save this one.
+              <p className="mt-1 text-xs text-red-500">
+                This day already has {sameDayAllClientsCount} appointment{sameDayAllClientsCount > 1 ? 's' : ''} booked, which is at or above your daily limit of {maxPerDay}. You cannot save this appointment.
               </p>
             )}
           </div>
