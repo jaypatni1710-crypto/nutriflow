@@ -60,8 +60,8 @@ app.all('/api/auth/*', delegate('/api/auth', (env) => {
     .map((o) => o.trim())
     .filter(Boolean)[0] || 'http://localhost:5173';
   const emailCfg = {
-    resendApiKey: env.RESEND_API_KEY,
-    from: env.SMTP_FROM || 'noreply@nutriflow.app',
+    brevoApiKey: env.BREVO_API_KEY,
+    from: env.SMTP_FROM || 'jaypatni291103@gmail.com',
     frontendUrl: primaryFrontendUrl.replace(/\/+$/, ''),
   };
   const authService = new AuthService(db, env.JWT_SECRET, emailCfg);

@@ -7,7 +7,7 @@ const REFRESH_TOKEN_EXPIRY_DEFAULT = 7 * 24 * 60 * 60 * 1000;
 const REFRESH_TOKEN_EXPIRY_REMEMBER = 30 * 24 * 60 * 60 * 1000;
 
 interface EmailConfig {
-  resendApiKey: string;
+  brevoApiKey: string;
   from: string;
   frontendUrl: string;
 }
@@ -164,7 +164,7 @@ export class AuthService {
     );
     await sendPasswordResetEmail(
       email.toLowerCase(), token, user.first_name,
-      this.emailCfg.resendApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
+      this.emailCfg.brevoApiKey, this.emailCfg.from, this.emailCfg.frontendUrl
     );
   }
 
