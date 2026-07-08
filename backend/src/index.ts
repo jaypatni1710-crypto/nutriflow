@@ -55,10 +55,14 @@ function delegate(prefix: string, buildRouter: (env: Env) => Hono<any>) {
 
 app.all('/api/auth/*', delegate('/api/auth', (env) => {
   const db = getDb(env);
+  const primaryFrontendUrl = (env.FRONTEND_URL || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)[0] || 'http://localhost:5173';
   const emailCfg = {
     resendApiKey: env.RESEND_API_KEY,
     from: env.SMTP_FROM || 'noreply@nutriflow.app',
-    frontendUrl: env.FRONTEND_URL,
+    frontendUrl: primaryFrontendUrl.replace(/\/+$/, ''),
   };
   const authService = new AuthService(db, env.JWT_SECRET, emailCfg);
   return createAuthRouter(authService);

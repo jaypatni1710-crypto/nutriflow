@@ -31,7 +31,7 @@ id = "5f96139c3d534e02833a252c053ffc83"
 #   FRONTEND_URL      - e.g. https://nutriflow.pages.dev
 
 [vars]
-SMTP_FROM = "noreply@nutriflow.app"
+SMTP_FROM = "onboarding@resend.dev"
 
 # Runs every minute so the 10-minutes-before-appointment reminder fires on time.
 [triggers]
