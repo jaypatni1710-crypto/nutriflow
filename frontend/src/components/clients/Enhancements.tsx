@@ -453,14 +453,7 @@ export function LabReportsSection({ clientId, reports, onChanged }: { clientId: 
 }
 
 // Feature 7: Client Timeline
-const TIMELINE_ICONS: Record<string, string> = {
-  client_created: '🧑', assessment_updated: '📋', weight_updated: '⚖️',
-  report_uploaded: '🧪', note_added: '📝', status_changed: '🔄', photo_uploaded: '📸',
-  communication_logged: '💬', goal_updated: '🎯', archived: '📦', restored: '✅',
-};
 
-// Same order as the profile page tabs (Overview, Assessment, Medical History,
-// Progress, Appointments, Diet Plan, Notes) so the dropdown matches the tabs.
 // Same order as the profile page tabs (Overview, Assessment, Medical History,
 // Progress, Appointments, Diet Plan, Notes) so the dropdown matches the tabs.
 const FILTER_OPTIONS: { label: string; values: string[] }[] = [
