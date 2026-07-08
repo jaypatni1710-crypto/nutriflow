@@ -8,6 +8,7 @@ import {
   tagLabel,
   AddAppointmentModal,
   ViewAppointmentModal,
+  isAppointmentPast,
 } from '../../pages/AppointmentsPage';
 
 interface Settings {
@@ -74,24 +75,25 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
     [allAppointments, clientId]
   );
 
-  const handleSave = async (data: Omit<Appointment, 'id'>) => {
-    try {
-      if (editingAppt) {
-        const res = await appointmentApi.update(editingAppt.id, apptToApiBody(data));
-        const updated = apiToAppt(res.data);
-        setAllAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
-        setToast('Appointment updated');
-      } else {
-        const res = await appointmentApi.create(apptToApiBody(data));
-        const created = apiToAppt(res.data);
-        setAllAppointments((prev) => [...prev, created]);
-        setToast('Appointment created');
+  const handleSave = (data: Omit<Appointment, 'id' | 'createdAt'>) => {
+    (async () => {
+      try {
+        if (editingAppt) {
+          const res = await appointmentApi.update(editingAppt.id, apptToApiBody(data as Appointment));
+          const updated = apiToAppt(res.data);
+          setAllAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+          setToast('Appointment updated');
+        } else {
+          const res = await appointmentApi.create(apptToApiBody(data as Appointment));
+          const created = apiToAppt(res.data);
+          setAllAppointments((prev) => [...prev, created]);
+          setToast('Appointment created');
+        }
+      } catch (err) {
+        console.error(err);
+        setToast('Failed to save appointment');
       }
-    } catch (err) {
-      console.error(err);
-      setToast('Failed to save appointment');
-    }
-    setEditingAppt(null);
+    })().finally(() => setEditingAppt(null));
   };
 
   const handleDelete = async (apptId: string) => {
@@ -163,16 +165,18 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
                           <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                       </button>
-                      <button
-                        onClick={() => { setEditingAppt(a); setShowAdd(true); }}
-                        title="Edit"
-                        aria-label="Edit"
-                        className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-                        </svg>
-                      </button>
+                      {!isAppointmentPast(a.date, a.timeTo) && (
+                        <button
+                          onClick={() => { setEditingAppt(a); setShowAdd(true); }}
+                          title="Edit"
+                          aria-label="Edit"
+                          className="p-1.5 rounded-lg text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+                          </svg>
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(a.id)}
                         title="Delete"
@@ -220,3 +224,4 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
     </div>
   );
 }
+

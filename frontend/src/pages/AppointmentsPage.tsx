@@ -133,6 +133,12 @@ function sortByTime(appts: Appointment[]): Appointment[] {
   return [...appts].sort((a, b) => a.timeFrom.localeCompare(b.timeFrom));
 }
 
+// Returns true once the appointment's end time (date + timeTo) is in the past.
+export function isAppointmentPast(date: string, timeTo: string): boolean {
+  if (!date || !timeTo) return false;
+  return new Date(`${date}T${timeTo}:00`) < new Date();
+}
+
 // Returns true if [aStart, aEnd) overlaps [bStart, bEnd)
 function timesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string) {
   return aStart < bEnd && bStart < aEnd;
@@ -608,6 +614,7 @@ export function ViewAppointmentModal({
     cancelled: { ring: 'ring-red-100 dark:ring-red-500/20', bar: 'from-red-500 to-red-400', iconBg: 'bg-red-50 dark:bg-red-500/10', iconText: 'text-red-600 dark:text-red-400' },
   };
   const accent = ACCENT[appt.status];
+  const isPast = isAppointmentPast(appt.date, appt.timeTo);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
@@ -697,15 +704,17 @@ export function ViewAppointmentModal({
 
         {/* Footer actions */}
         <div className="flex justify-end gap-2 px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30">
-          <button
-            onClick={onEdit}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 flex items-center gap-1.5 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
-            </svg>
-            Edit
-          </button>
+          {!isPast && (
+            <button
+              onClick={onEdit}
+              className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 border border-transparent hover:border-slate-200 dark:hover:border-slate-700 flex items-center gap-1.5 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" />
+              </svg>
+              Edit
+            </button>
+          )}
           <button
             onClick={onDelete}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 flex items-center gap-1.5 transition-colors"
