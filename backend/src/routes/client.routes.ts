@@ -364,7 +364,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       if (!object) return c.json({ success: false, message: 'File not found in storage' }, 404);
 
       c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
-      c.header('Content-Disposition', `attachment; filename="${report.original_filename}"`);
+      c.header('Cache-Control', 'private, max-age=31536000, immutable');
       return c.body(object.body as any);
     } catch (err) {
       console.error(err);
@@ -459,7 +459,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
 
       c.header('Content-Type', object.httpMetadata?.contentType || 'application/octet-stream');
       // Inline (not attachment) so it can be used directly as an <img src>
-      c.header('Content-Disposition', `inline; filename="${photo.original_filename}"`);
+      c.header('Cache-Control', 'private, max-age=31536000, immutable');
       return c.body(object.body as any);
     } catch (err) {
       console.error(err);

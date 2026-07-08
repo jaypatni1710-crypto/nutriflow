@@ -141,7 +141,7 @@ function PhotoThumb({ clientId, photo, label, onDelete }: { clientId: string; ph
     <>
       <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
         {url ? (
-          <img src={url} alt={label} onClick={() => setFullScreen(true)} className="w-full h-40 object-cover cursor-pointer" />
+          <img src={url} alt={label} loading="lazy" onClick={() => setFullScreen(true)} className="w-full h-40 object-cover cursor-pointer" />
         ) : (
           <div className="w-full h-40 flex items-center justify-center text-slate-400 text-xs">Loading...</div>
         )}
