@@ -341,28 +341,36 @@ export class AuthService {
         );
         filePaths = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
 
-        await client.query(`DELETE FROM diet_plans WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM appointments WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_assessments WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_medical_history WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_notes WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_tags WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_communications WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_food_frequency WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_progress_logs WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_lab_reports WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_progress_photos WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM client_timeline WHERE client_id = ANY($1)`, [clientIds]);
-        await client.query(`DELETE FROM clients WHERE dietitian_id = $1`, [userId]);
+        // Single round trip: all client-scoped deletes batched into one multi-statement query.
+        await client.query(
+          `DELETE FROM diet_plans WHERE client_id = ANY($1);
+           DELETE FROM appointments WHERE client_id = ANY($1);
+           DELETE FROM client_assessments WHERE client_id = ANY($1);
+           DELETE FROM client_medical_history WHERE client_id = ANY($1);
+           DELETE FROM client_notes WHERE client_id = ANY($1);
+           DELETE FROM client_tags WHERE client_id = ANY($1);
+           DELETE FROM client_communications WHERE client_id = ANY($1);
+           DELETE FROM client_food_frequency WHERE client_id = ANY($1);
+           DELETE FROM client_progress_logs WHERE client_id = ANY($1);
+           DELETE FROM client_lab_reports WHERE client_id = ANY($1);
+           DELETE FROM client_progress_photos WHERE client_id = ANY($1);
+           DELETE FROM client_timeline WHERE client_id = ANY($1);
+           DELETE FROM clients WHERE dietitian_id = $2;`,
+          [clientIds, userId]
+        );
       }
 
-      await client.query(`DELETE FROM appointments WHERE dietitian_id = $1`, [userId]);
-      await client.query(`DELETE FROM appointment_settings WHERE dietitian_id = $1`, [userId]);
-      await client.query(`DELETE FROM push_subscriptions WHERE dietitian_id = $1`, [userId]);
-      await client.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [userId]);
-      await client.query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [userId]);
-      await client.query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [userId]);
-      const result = await client.query(`DELETE FROM users WHERE id = $1 RETURNING id`, [userId]);
+      // Single round trip: all user-scoped deletes batched into one multi-statement query.
+      const result = await client.query(
+        `DELETE FROM appointments WHERE dietitian_id = $1;
+         DELETE FROM appointment_settings WHERE dietitian_id = $1;
+         DELETE FROM push_subscriptions WHERE dietitian_id = $1;
+         DELETE FROM refresh_tokens WHERE user_id = $1;
+         DELETE FROM email_verification_tokens WHERE user_id = $1;
+         DELETE FROM password_reset_tokens WHERE user_id = $1;
+         DELETE FROM users WHERE id = $1 RETURNING id;`,
+        [userId]
+      );
 
       if (result.rows.length === 0) {
         await client.query('ROLLBACK');
