@@ -21,7 +21,8 @@ preview_id = "08b3ca021cb64cf5a83c499c1f087b0c"
 #
 # [[hyperdrive]]
 # binding = "HYPERDRIVE"
-# id = "REPLACE_WITH_YOUR_HYPERDRIVE_ID"
+# id = "5f96139c3d534e02833a252c053ffc83"
+
 
 # Secrets — set via: wrangler secret put JWT_SECRET (only needed before deploying)
 # Required secrets:
