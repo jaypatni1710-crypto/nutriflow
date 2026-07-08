@@ -77,7 +77,7 @@ export function apiToAppt(a: ApiAppointment): Appointment {
   };
 }
 
-export function apptToApiBody(a: Omit<Appointment, 'id'>) {
+export function apptToApiBody(a: Omit<Appointment, 'id' | 'createdAt'>) {
   return {
     client_id: a.clientId,
     client_name: a.clientName,
@@ -261,7 +261,7 @@ export function AddAppointmentModal({
   workingEnd: string;
   maxPerDay: number | '';
   onClose: () => void;
-  onSave: (appt: Omit<Appointment, 'id'>) => void;
+  onSave: (appt: Omit<Appointment, 'id' | 'createdAt'>) => void;
 }) {
   const todayKey = todayDateKey();
 
@@ -833,7 +833,7 @@ export default function AppointmentsPage() {
     setShowAddAppointment(true);
   };
 
-  const handleSaveAppointment = async (data: Omit<Appointment, 'id'>) => {
+  const handleSaveAppointment = async (data: Omit<Appointment, 'id' | 'createdAt'>) => {
     try {
       if (editingAppt) {
         const res = await appointmentApi.update(editingAppt.id, apptToApiBody(data));

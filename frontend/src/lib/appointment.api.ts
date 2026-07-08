@@ -37,10 +37,10 @@ export interface ApiAppointmentSettings {
 export const appointmentApi = {
   list: () => request<{ success: boolean; data: ApiAppointment[] }>(''),
 
-  create: (body: Omit<ApiAppointment, 'id'>) =>
+  create: (body: Omit<ApiAppointment, 'id' | 'created_at'>) =>
     request<{ success: boolean; data: ApiAppointment }>('', { method: 'POST', body: JSON.stringify(body) }),
 
-  update: (id: string, body: Partial<Omit<ApiAppointment, 'id'>>) =>
+  update: (id: string, body: Partial<Omit<ApiAppointment, 'id' | 'created_at'>>) =>
     request<{ success: boolean; data: ApiAppointment }>(`/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
 
   remove: (id: string) => request<{ success: boolean }>(`/${id}`, { method: 'DELETE' }),
