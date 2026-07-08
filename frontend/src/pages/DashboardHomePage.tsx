@@ -255,7 +255,7 @@ export default function DashboardHomePage() {
 
     return items
       .sort((x, y) => y.createdAt.localeCompare(x.createdAt))
-      .slice(0, 8);
+      .slice(0, 5);
   }, [appointments, dietPlans, recentClients, navigate]);
 
   return (
@@ -279,14 +279,14 @@ export default function DashboardHomePage() {
           hint={activeClientsCount === 0 ? 'No active clients yet' : 'Currently active'}
         />
         <StatCard
-          label="Upcoming Sessions"
-          value={loading ? '—' : String(upcomingSessions)}
-          hint={upcomingSessions === 0 ? 'Nothing scheduled' : 'From today onward'}
-        />
-        <StatCard
           label="Appointments Today"
           value={loading ? '—' : String(appointmentsToday)}
           hint={appointmentsToday === 0 ? 'Nothing scheduled today' : 'Scheduled for today'}
+        />
+        <StatCard
+          label="Upcoming Appointments"
+          value={loading ? '—' : String(upcomingSessions)}
+          hint={upcomingSessions === 0 ? 'Nothing scheduled' : 'From today onward'}
         />
       </div>
 
