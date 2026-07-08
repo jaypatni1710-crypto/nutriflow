@@ -602,6 +602,14 @@ export class ClientService {
     return res.rows[0] || null;
   }
 
+  async countLabReports(clientId: string) {
+    const res = await this.db.query(
+      `SELECT COUNT(*)::int AS count FROM client_lab_reports WHERE client_id = $1`,
+      [clientId]
+    );
+    return res.rows[0].count as number;
+  }
+
   async deleteLabReport(clientId: string, reportId: string) {
     const res = await this.db.query(
       `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path, report_type`,

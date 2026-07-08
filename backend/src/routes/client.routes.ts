@@ -13,7 +13,9 @@ const ALLOWED_REPORT_TYPES = ['CBC', 'HbA1c', 'Thyroid', 'Vitamin D', 'Vitamin B
 const ALLOWED_REPORT_MIME = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
 const ALLOWED_PHOTO_TYPES = ['before', 'monthly'];
 const ALLOWED_PHOTO_MIME = ['image/jpeg', 'image/jpg', 'image/png'];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_LAB_REPORT_SIZE = 5 * 1024 * 1024;   // 5MB per lab report
+const MAX_PHOTO_SIZE = 1.5 * 1024 * 1024;      // 1.5MB per progress photo
+const MAX_LAB_REPORTS_PER_CLIENT = 2;
 
 // Helper: upload a file to Cloudflare R2 and return its stored path
 // NOTE: Add an R2 binding `FILES_BUCKET` in wrangler.toml when you're ready for file uploads
@@ -334,8 +336,12 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       if (!ALLOWED_REPORT_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only PDF, JPG and PNG files allowed' }, 400);
       }
-      if (file.size > MAX_FILE_SIZE) {
-        return c.json({ success: false, message: 'File size must be under 10MB' }, 400);
+      if (file.size > MAX_LAB_REPORT_SIZE) {
+        return c.json({ success: false, message: 'File size must be under 5MB' }, 400);
+      }
+      const existingReports = await clientService.countLabReports(c.req.param('id'));
+      if (existingReports >= MAX_LAB_REPORTS_PER_CLIENT) {
+        return c.json({ success: false, message: `Only ${MAX_LAB_REPORTS_PER_CLIENT} lab reports allowed per client. Delete one before uploading another.` }, 400);
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
@@ -402,8 +408,8 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
       if (!ALLOWED_PHOTO_MIME.includes(file.type)) {
         return c.json({ success: false, message: 'Only JPG and PNG files allowed' }, 400);
       }
-      if (file.size > MAX_FILE_SIZE) {
-        return c.json({ success: false, message: 'File size must be under 10MB' }, 400);
+      if (file.size > MAX_PHOTO_SIZE) {
+        return c.json({ success: false, message: 'File size must be under 1.5MB' }, 400);
       }
 
       const bucket = (c.env as any).FILES_BUCKET as R2Bucket | undefined;
