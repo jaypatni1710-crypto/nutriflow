@@ -7,7 +7,7 @@ import { CreateAppointmentInput, AppointmentSettings } from '../types/appointmen
 // "2026-07-08T00:00:00.000Z" over JSON — not the plain "YYYY-MM-DD" the
 // frontend calendar uses as its lookup key. Without the cast, appointments
 // save fine but silently fail to appear on the calendar grid.
-const APPT_COLUMNS = `id, dietitian_id, client_id, client_name, status, appt_date::text AS appt_date, time_from, time_to, notes, created_at, updated_at`;
+const APPT_COLUMNS = `id, dietitian_id, client_id, client_name, status, appt_date::text AS appt_date, time_from, time_to, notes, tag, tag_other, created_at, updated_at`;
 
 export class AppointmentService {
   constructor(private db: Pool) {}
@@ -22,9 +22,9 @@ export class AppointmentService {
 
   async create(dietitianId: string, input: CreateAppointmentInput) {
     const res = await this.db.query(
-      `INSERT INTO appointments (dietitian_id, client_id, client_name, status, appt_date, time_from, time_to, notes)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING ${APPT_COLUMNS}`,
-      [dietitianId, input.client_id, input.client_name, input.status, input.appt_date, input.time_from, input.time_to, input.notes ?? null]
+      `INSERT INTO appointments (dietitian_id, client_id, client_name, status, appt_date, time_from, time_to, notes, tag, tag_other)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${APPT_COLUMNS}`,
+      [dietitianId, input.client_id, input.client_name, input.status, input.appt_date, input.time_from, input.time_to, input.notes ?? null, input.tag ?? null, input.tag_other ?? null]
     );
     return res.rows[0];
   }

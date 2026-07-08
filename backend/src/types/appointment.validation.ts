@@ -11,6 +11,8 @@ export const createAppointmentSchema = z.object({
   time_from: z.string().regex(timeRegex),
   time_to: z.string().regex(timeRegex),
   notes: z.string().max(2000).nullable().optional(),
+  tag: z.enum(['discussion', 'diet_plan_discussion', 'diet_plan_sent', 'follow_up_tag', 'consultation', 'other']).nullable().optional(),
+  tag_other: z.string().max(200).nullable().optional(),
 });
 
 export const updateAppointmentSchema = createAppointmentSchema.partial();

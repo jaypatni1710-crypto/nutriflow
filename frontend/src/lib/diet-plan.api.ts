@@ -1,4 +1,4 @@
-import { DietPlan, DietPlanInput } from '../types/diet-plan.types';
+import { DietPlan, DietPlanInput } from './types/diet-plan.types';
 
 const BASE = `${import.meta.env.VITE_API_URL || ''}/api/diet-plans`;
 

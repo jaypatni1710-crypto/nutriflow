@@ -10,6 +10,8 @@ export interface Appointment {
   time_from: string;
   time_to: string;
   notes: string | null;
+  tag: string | null;
+  tag_other: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +24,8 @@ export interface CreateAppointmentInput {
   time_from: string;
   time_to: string;
   notes?: string | null;
+  tag?: string | null;
+  tag_other?: string | null;
 }
 
 export interface AppointmentSettings {

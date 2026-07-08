@@ -28,6 +28,24 @@ interface AppointmentSettings {
   workingEnd: string;
 }
 
+// Appointment tag presets. "other" unlocks a free-text input in the popup.
+const TAG_OPTIONS = [
+  { value: 'discussion', label: 'Discussion' },
+  { value: 'diet_plan_discussion', label: 'Diet Plan Discussion' },
+  { value: 'diet_plan_sent', label: 'Diet Plan Sent' },
+  { value: 'follow_up_tag', label: 'Follow-up' },
+  { value: 'consultation', label: 'Consultation' },
+  { value: 'other', label: 'Other' },
+] as const;
+
+// Resolves a tag value to its display label — falls back to the free-text
+// value when tag === 'other'.
+function tagLabel(tag: string, tagOther: string): string {
+  if (!tag) return '—';
+  if (tag === 'other') return tagOther || 'Other';
+  return TAG_OPTIONS.find((t) => t.value === tag)?.label || tag;
+}
+
 interface Appointment {
   id: string;
   clientId: string;
@@ -37,6 +55,8 @@ interface Appointment {
   timeFrom: string;
   timeTo: string;
   notes: string;
+  tag: string;
+  tagOther: string;
 }
 
 // ---- API <-> UI mapping helpers ----
@@ -50,6 +70,8 @@ function apiToAppt(a: ApiAppointment): Appointment {
     timeFrom: a.time_from,
     timeTo: a.time_to,
     notes: a.notes ?? '',
+    tag: a.tag ?? '',
+    tagOther: a.tag_other ?? '',
   };
 }
 
@@ -62,6 +84,8 @@ function apptToApiBody(a: Omit<Appointment, 'id'>) {
     time_from: a.timeFrom,
     time_to: a.timeTo,
     notes: a.notes ? a.notes : null,
+    tag: a.tag ? a.tag : null,
+    tag_other: a.tag === 'other' && a.tagOther ? a.tagOther : null,
   };
 }
 
@@ -221,6 +245,7 @@ function AddAppointmentModal({
   durationMinutes,
   workingStart,
   workingEnd,
+  maxPerDay,
   onClose,
   onSave,
 }: {
@@ -230,6 +255,7 @@ function AddAppointmentModal({
   durationMinutes: number | '';
   workingStart: string;
   workingEnd: string;
+  maxPerDay: number | '';
   onClose: () => void;
   onSave: (appt: Omit<Appointment, 'id'>) => void;
 }) {
@@ -246,6 +272,8 @@ function AddAppointmentModal({
   const [timeFrom, setTimeFrom] = useState(initial?.timeFrom || '');
   const [timeTo, setTimeTo] = useState(initial?.timeTo || '');
   const [notes, setNotes] = useState(initial?.notes || '');
+  const [tag, setTag] = useState(initial?.tag || '');
+  const [tagOther, setTagOther] = useState(initial?.tagOther || '');
   // Tracks whether the "to" time was set by hand — once it has been, we stop
   // auto-filling it from the start time + default duration. Starts false even
   // when editing an existing appointment, so changing the start time still
@@ -323,12 +351,34 @@ function AddAppointmentModal({
 
   const hasSameClientSameDay = sameClientSameDayAppts.length > 0;
 
+  // All appointments on this date, any client, excluding the one being
+  // edited — used only for the max-per-day warning below. This never blocks
+  // saving; it's a heads-up so you know you're going over the daily target.
+  const sameDayAllClientsCount = useMemo(() => {
+    if (!apptDate) return 0;
+    return allAppointments.filter((a) => a.date === apptDate && a.id !== initial?.id).length;
+  }, [allAppointments, apptDate, initial?.id]);
+
+  const isOverMaxPerDay = maxPerDay !== '' && apptDate !== '' && sameDayAllClientsCount + 1 > Number(maxPerDay);
+
+  const isTagValid = tag !== '' && (tag !== 'other' || tagOther.trim() !== '');
+
   const canSave =
-    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours;
+    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid;
 
   const handleSave = () => {
     if (!canSave) return;
-    onSave({ clientId, clientName: clientQuery, status, date: apptDate, timeFrom, timeTo, notes: notes.trim() });
+    onSave({
+      clientId,
+      clientName: clientQuery,
+      status,
+      date: apptDate,
+      timeFrom,
+      timeTo,
+      notes: notes.trim(),
+      tag,
+      tagOther: tag === 'other' ? tagOther.trim() : '',
+    });
     onClose();
   };
 
@@ -403,6 +453,11 @@ function AddAppointmentModal({
                 {clientQuery || 'This client'} already has {sameClientSameDayAppts.length} appointment{sameClientSameDayAppts.length > 1 ? 's' : ''} on this day ({sameClientSameDayAppts.map((a) => `${a.timeFrom}–${a.timeTo}`).join(', ')}). You can still save, just make sure the time doesn't overlap.
               </p>
             )}
+            {isOverMaxPerDay && (
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                This day already has {sameDayAllClientsCount} appointment{sameDayAllClientsCount > 1 ? 's' : ''} booked, at or above your daily limit of {maxPerDay}. You can still save this one.
+              </p>
+            )}
           </div>
 
           <div>
@@ -448,6 +503,29 @@ function AddAppointmentModal({
               <p className="mt-1 text-xs text-red-500">
                 Appointment must be within working hours ({workingStart} – {workingEnd}).
               </p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Appointment Tag</label>
+            <select
+              value={tag}
+              onChange={(e) => { setTag(e.target.value); if (e.target.value !== 'other') setTagOther(''); }}
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">Select a tag...</option>
+              {TAG_OPTIONS.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            {tag === 'other' && (
+              <input
+                type="text"
+                value={tagOther}
+                onChange={(e) => setTagOther(e.target.value)}
+                placeholder="Describe the tag..."
+                className="mt-2 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              />
             )}
           </div>
 
@@ -573,6 +651,20 @@ function ViewAppointmentModal({
             </div>
           </div>
 
+          {/* Tag */}
+          {appt.tag && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 p-3 mb-4">
+              <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-1">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.169.659 1.591l9.581 9.581c.699.699 1.83.699 2.528 0l4.318-4.318a1.788 1.788 0 000-2.528L10.905 3.66A2.25 2.25 0 009.568 3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
+                </svg>
+                <span className="text-xs font-semibold uppercase tracking-wide">Tag</span>
+              </div>
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">{tagLabel(appt.tag, appt.tagOther)}</p>
+            </div>
+          )}
+
           {/* Notes */}
           <div className="rounded-xl bg-slate-50 dark:bg-slate-800/50 p-3.5">
             <div className="flex items-center gap-2 text-slate-400 dark:text-slate-500 mb-1.5">
@@ -654,6 +746,7 @@ function DayAppointmentsModal({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate">{a.clientName}</p>
                 <p className="text-xs text-slate-400">{a.timeFrom} – {a.timeTo}</p>
+                {a.tag && <p className="text-xs text-teal-600 dark:text-teal-400 truncate">{tagLabel(a.tag, a.tagOther)}</p>}
               </div>
               <span className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_META[a.status].badge}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${STATUS_META[a.status].dot}`} />
@@ -921,6 +1014,7 @@ export default function AppointmentsPage() {
           durationMinutes={settings.durationMinutes}
           workingStart={settings.workingStart}
           workingEnd={settings.workingEnd}
+          maxPerDay={settings.maxPerDay}
           onClose={() => { setShowAddAppointment(false); setEditingAppt(null); }}
           onSave={handleSaveAppointment}
         />
