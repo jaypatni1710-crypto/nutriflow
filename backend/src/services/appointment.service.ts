@@ -1,5 +1,6 @@
 import { Pool } from 'pg';
 import { CreateAppointmentInput, AppointmentSettings } from '../types/appointment.types';
+import { logClientTimelineEvent } from './client.service';
 
 // Every appointments query selects appt_date cast to text (appt_date::text).
 // Reason: node-postgres parses SQL DATE columns into JS Date objects by
@@ -25,6 +26,12 @@ export class AppointmentService {
       `INSERT INTO appointments (dietitian_id, client_id, client_name, status, appt_date, time_from, time_to, notes, tag, tag_other)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING ${APPT_COLUMNS}`,
       [dietitianId, input.client_id, input.client_name, input.status, input.appt_date, input.time_from, input.time_to, input.notes ?? null, input.tag ?? null, input.tag_other ?? null]
+    );
+    await logClientTimelineEvent(
+      this.db,
+      input.client_id,
+      'appointment_scheduled',
+      `Appointment scheduled for ${input.appt_date} at ${input.time_from}`
     );
     return res.rows[0];
   }

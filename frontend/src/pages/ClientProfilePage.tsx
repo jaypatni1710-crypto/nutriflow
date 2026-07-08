@@ -411,7 +411,7 @@ export default function ClientProfilePage() {
         <ClientDietPlanSection clientId={id!} clientName={`${c.first_name} ${c.last_name}`} clientGoal={c.primary_goal || ''} />
       )}
 
-      {tab === 'Timeline' && <TimelineSection events={timeline} />}
+      {tab === 'Timeline' && <TimelineSection events={timeline} onNavigate={(t) => setTab(t as Tab)} />}
 
       {tab === 'Notes' && (
         <>

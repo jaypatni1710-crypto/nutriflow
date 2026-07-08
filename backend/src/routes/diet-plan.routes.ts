@@ -36,7 +36,10 @@ export function createDietPlanRouter(dietPlanService: DietPlanService): Hono<{ B
       const updated = await dietPlanService.update(dietitianId, c.req.param('id'), c.req.valid('json') as any);
       if (!updated) return c.json({ success: false, message: 'Diet plan not found' }, 404);
       return c.json({ success: true, data: updated });
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.message === 'DIET_PLAN_LOCKED') {
+        return c.json({ success: false, message: 'Only the latest diet plan for a client can be edited.' }, 403);
+      }
       console.error(err);
       return c.json({ success: false, message: 'Failed to update diet plan' }, 500);
     }

@@ -459,25 +459,118 @@ const TIMELINE_ICONS: Record<string, string> = {
   communication_logged: '💬', goal_updated: '🎯', archived: '📦', restored: '✅',
 };
 
+// Same order as the profile page tabs (Overview, Assessment, Medical History,
+// Progress, Appointments, Diet Plan, Notes) so the dropdown matches the tabs.
+// Same order as the profile page tabs (Overview, Assessment, Medical History,
+// Progress, Appointments, Diet Plan, Notes) so the dropdown matches the tabs.
 const FILTER_OPTIONS: { label: string; values: string[] }[] = [
   { label: 'All', values: [] },
-  { label: 'Overview', values: ['client_created', 'goal_updated'] },
+  { label: 'Overview', values: ['client_created', 'goal_updated', 'status_changed', 'overview_updated', 'archived', 'restored'] },
   { label: 'Assessment', values: ['assessment_updated'] },
-  { label: 'Medical History', values: ['medical_history_updated'] },
-  { label: 'Progress', values: ['photo_uploaded', 'weight_updated'] },
-  { label: 'Note', values: ['note_added'] },
-  { label: 'Diet Plan', values: ['diet_plan_updated'] },
-  { label: 'Appointment', values: ['appointment_scheduled'] },
+  { label: 'Medical History', values: ['medical_history_updated', 'report_uploaded', 'report_deleted'] },
+  { label: 'Progress', values: ['photo_uploaded', 'photo_deleted', 'weight_updated'] },
+  { label: 'Appointments', values: ['appointment_scheduled'] },
+  { label: 'Diet Plan', values: ['diet_plan_created'] },
+  { label: 'Notes', values: ['note_added', 'note_updated'] },
 ];
 
-export function TimelineSection({ events }: { events: ClientTimelineEvent[] }) {
+// Maps each event type to the profile tab it should jump to on click.
+// Events with no entry here (e.g. client_created) aren't clickable.
+const EVENT_TAB_MAP: Record<string, string> = {
+  goal_updated: 'Overview', status_changed: 'Overview', overview_updated: 'Overview',
+  archived: 'Overview', restored: 'Overview',
+  assessment_updated: 'Assessment',
+  medical_history_updated: 'Medical History', report_uploaded: 'Medical History', report_deleted: 'Medical History',
+  photo_uploaded: 'Progress', photo_deleted: 'Progress', weight_updated: 'Progress',
+  appointment_scheduled: 'Appointments',
+  diet_plan_created: 'Diet Plan',
+  note_added: 'Notes', note_updated: 'Notes',
+};
+
+// One color + icon per tab category. "Created" (no tab) gets its own look.
+const CATEGORY_META: Record<string, { style: string; icon: React.ReactNode }> = {
+  Overview: {
+    style: 'bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7" />
+      </svg>
+    ),
+  },
+  Assessment: {
+    style: 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="5" y="3" width="14" height="18" rx="2" /><path d="M9 3v2h6V3M9 10h6M9 14h6M9 18h3" />
+      </svg>
+    ),
+  },
+  'Medical History': {
+    style: 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 2v4M15 2v4M4 8h16l-1 12a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 8Z" />
+        <path d="M12 11v6M9 14h6" />
+      </svg>
+    ),
+  },
+  Progress: {
+    style: 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="6" width="18" height="14" rx="2" /><circle cx="12" cy="13" r="3.5" /><path d="M8 6l1.5-2h5L16 6" />
+      </svg>
+    ),
+  },
+  Appointments: {
+    style: 'bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" />
+      </svg>
+    ),
+  },
+  'Diet Plan': {
+    style: 'bg-teal-50 dark:bg-teal-500/10 text-teal-600 dark:text-teal-400',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+      </svg>
+    ),
+  },
+  Notes: {
+    style: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300',
+    icon: (
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M4 4h16v13l-4 3H4z" /><path d="M8 9h8M8 13h5" />
+      </svg>
+    ),
+  },
+};
+
+const CREATED_META = {
+  style: 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  icon: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18M3 12h18" />
+    </svg>
+  ),
+};
+
+function formatTimelineDate(iso: string): string {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+export function TimelineSection({ events, onNavigate }: { events: ClientTimelineEvent[]; onNavigate: (tab: string) => void }) {
   const [filter, setFilter] = useState('All');
   const activeValues = FILTER_OPTIONS.find((o) => o.label === filter)?.values || [];
   const filtered = activeValues.length ? events.filter((e) => activeValues.includes(e.event_type)) : events;
 
   return (
     <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-5">
         <h4 className="text-sm font-bold text-slate-900 dark:text-white">Client Timeline</h4>
         <select
           value={filter}
@@ -490,16 +583,44 @@ export function TimelineSection({ events }: { events: ClientTimelineEvent[] }) {
       {filtered.length === 0 ? (
         <p className="text-sm text-slate-400">No activity recorded yet.</p>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((e) => (
-            <div key={e.id} className="flex gap-3 text-sm">
-              <span>{TIMELINE_ICONS[e.event_type] || '•'}</span>
-              <div className="flex-1 border-b border-slate-100 dark:border-slate-800 pb-2">
-                <p className="text-slate-700 dark:text-slate-200">{e.description}</p>
-                <span className="text-xs text-slate-400">{new Date(e.created_at).toLocaleString()}</span>
+        <div>
+          {filtered.map((e, idx) => {
+            const targetTab = EVENT_TAB_MAP[e.event_type];
+            const meta = (targetTab && CATEGORY_META[targetTab]) || CREATED_META;
+            const isLast = idx === filtered.length - 1;
+
+            const inner = (
+              <>
+                <span className={`relative z-10 shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${meta.style}`}>
+                  {meta.icon}
+                </span>
+                <div className="flex-1 min-w-0 pt-1">
+                  <p className={`text-sm text-slate-800 dark:text-slate-100 ${targetTab ? 'group-hover:text-teal-600 dark:group-hover:text-teal-400' : ''}`}>
+                    {e.description}
+                  </p>
+                  <span className="block mt-0.5 text-xs text-slate-400">{formatTimelineDate(e.created_at)}</span>
+                </div>
+                {targetTab && (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-2 text-slate-300 dark:text-slate-600 group-hover:text-teal-500 transition-colors">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                )}
+              </>
+            );
+
+            return (
+              <div key={e.id} className="relative flex gap-3 pb-5 last:pb-0">
+                {!isLast && <span className="absolute left-4 top-8 bottom-0 w-px bg-slate-150 dark:bg-slate-800" />}
+                {targetTab ? (
+                  <button onClick={() => onNavigate(targetTab)} className="group flex gap-3 w-full text-left rounded-lg -mx-2 px-2 py-1 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-colors">
+                    {inner}
+                  </button>
+                ) : (
+                  <div className="flex gap-3 w-full">{inner}</div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

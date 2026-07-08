@@ -60,6 +60,53 @@ function calcIdealWeightRange(heightCm?: number): { min: number | null; max: num
   };
 }
 
+// Compares `input` against `existing` for the given fields and returns
+// human-readable "Label: old → new" strings for anything that actually changed.
+function diffFieldChanges(
+  existing: Record<string, any>,
+  input: Record<string, any>,
+  labels: Record<string, string>
+): string[] {
+  const changes: string[] = [];
+  for (const [key, label] of Object.entries(labels)) {
+    if (input[key] === undefined) continue;
+    const oldVal = existing?.[key] ?? null;
+    const newVal = input[key] === '' ? null : input[key];
+    const oldStr = Array.isArray(oldVal) ? oldVal.join(', ') : (oldVal ?? '—');
+    const newStr = Array.isArray(newVal) ? newVal.join(', ') : (newVal ?? '—');
+    if (String(oldStr) !== String(newStr)) {
+      changes.push(`${label}: ${oldStr} → ${newStr}`);
+    }
+  }
+  return changes;
+}
+
+// Turns a list of field-change strings into one short timeline description.
+function summarizeChanges(changes: string[]): string {
+  if (changes.length === 0) return '';
+  if (changes.length <= 2) return changes.join('; ');
+  return `${changes.slice(0, 2).join('; ')} and ${changes.length - 2} more field${changes.length - 2 > 1 ? 's' : ''} updated`;
+}
+
+// First N words of a note's content, with "..." if truncated — used for
+// short timeline previews.
+function textPreview(text: string | undefined | null, words = 5): string {
+  if (!text) return '';
+  const parts = text.trim().split(/\s+/);
+  if (parts.length === 0 || (parts.length === 1 && parts[0] === '')) return '';
+  if (parts.length <= words) return parts.join(' ');
+  return parts.slice(0, words).join(' ') + '...';
+}
+
+// Standalone timeline logger so other services (appointments, diet plans)
+// can record client timeline entries without depending on ClientService.
+export async function logClientTimelineEvent(db: Pool, clientId: string, eventType: string, description: string) {
+  await db.query(
+    `INSERT INTO client_timeline (client_id, event_type, description) VALUES ($1,$2,$3)`,
+    [clientId, eventType, description]
+  );
+}
+
 export class ClientService {
   constructor(private db: Pool) {}
 
@@ -253,6 +300,18 @@ export class ClientService {
       if ((input as any).status !== undefined) {
         await this.addTimelineEvent(clientId, 'status_changed', `Status changed to ${String((input as any).status).replace('_', ' ')}`);
       }
+      // Personal-info fields live on the Overview tab. target_weight/target_date
+      // and status already have their own events above, so they're excluded here.
+      const overviewLabels: Record<string, string> = {
+        first_name: 'First Name', last_name: 'Last Name', phone_number: 'Phone Number',
+        whatsapp_number: 'WhatsApp Number', email: 'Email', gender: 'Gender',
+        date_of_birth: 'Date of Birth', occupation: 'Occupation', city: 'City',
+        address: 'Address', primary_goal: 'Goal', specify_goal: 'Specify Goal',
+      };
+      const overviewChanges = diffFieldChanges(existing, input, overviewLabels);
+      if (overviewChanges.length > 0) {
+        await this.addTimelineEvent(clientId, 'overview_updated', summarizeChanges(overviewChanges));
+      }
     }
 
     const assessmentFields: Record<string, any> = {
@@ -321,9 +380,22 @@ export class ClientService {
       if (v !== undefined) { mParams.push(v); mSet.push(`${k} = $${mParams.length}`); }
     }
     if (mSet.length > 0) {
+      const existingMedRes = await this.db.query(`SELECT * FROM client_medical_history WHERE client_id = $1`, [clientId]);
+      const existingMed = existingMedRes.rows[0] || {};
+
       await this.db.query(`INSERT INTO client_medical_history (client_id) VALUES ($1) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
       mParams.push(clientId);
       await this.db.query(`UPDATE client_medical_history SET ${mSet.join(', ')} WHERE client_id = $${mParams.length}`, mParams);
+
+      const medLabels: Record<string, string> = {
+        conditions: 'Conditions', specify_condition: 'Specify Condition',
+        current_medications: 'Current Medications', family_medical_history: 'Family Medical History',
+        medical_notes: 'Medical Notes',
+      };
+      const medChanges = diffFieldChanges(existingMed, medFields, medLabels);
+      if (medChanges.length > 0) {
+        await this.addTimelineEvent(clientId, 'medical_history_updated', summarizeChanges(medChanges));
+      }
     }
     return this.getClientById(dietitianId, clientId);
   }
@@ -371,7 +443,8 @@ export class ClientService {
       `INSERT INTO client_notes (client_id, dietitian_id, title, content) VALUES ($1,$2,$3,$4) RETURNING *`,
       [clientId, dietitianId, title, content || null]
     );
-    await this.addTimelineEvent(clientId, 'note_added', 'Note added');
+    const preview = textPreview(content);
+    await this.addTimelineEvent(clientId, 'note_added', `"${title}"${preview ? ' — ' + preview : ''}`);
     return res.rows[0];
   }
 
@@ -380,6 +453,10 @@ export class ClientService {
       `UPDATE client_notes SET title = $1, content = $2 WHERE id = $3 AND client_id = $4 RETURNING *`,
       [title, content || null, noteId, clientId]
     );
+    if (res.rows[0]) {
+      const preview = textPreview(content);
+      await this.addTimelineEvent(clientId, 'note_updated', `"${title}"${preview ? ' — ' + preview : ''}`);
+    }
     return res.rows[0] || null;
   }
 
@@ -389,10 +466,7 @@ export class ClientService {
   }
 
   async addTimelineEvent(clientId: string, eventType: string, description: string) {
-    await this.db.query(
-      `INSERT INTO client_timeline (client_id, event_type, description) VALUES ($1,$2,$3)`,
-      [clientId, eventType, description]
-    );
+    await logClientTimelineEvent(this.db, clientId, eventType, description);
   }
 
   async addFoodFrequency(clientId: string, input: Record<string, string | undefined>) {
@@ -530,9 +604,12 @@ export class ClientService {
 
   async deleteLabReport(clientId: string, reportId: string) {
     const res = await this.db.query(
-      `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path`,
+      `DELETE FROM client_lab_reports WHERE id = $1 AND client_id = $2 RETURNING file_path, report_type`,
       [reportId, clientId]
     );
+    if (res.rows[0]) {
+      await this.addTimelineEvent(clientId, 'report_deleted', `${res.rows[0].report_type} report deleted`);
+    }
     return res.rows[0] || null;
   }
 
@@ -585,9 +662,13 @@ export class ClientService {
 
   async deleteProgressPhoto(clientId: string, photoId: string) {
     const res = await this.db.query(
-      `DELETE FROM client_progress_photos WHERE id = $1 AND client_id = $2 RETURNING file_path`,
+      `DELETE FROM client_progress_photos WHERE id = $1 AND client_id = $2 RETURNING file_path, photo_type, month_number`,
       [photoId, clientId]
     );
+    if (res.rows[0]) {
+      const label = res.rows[0].photo_type === 'before' ? 'Before' : `Month ${res.rows[0].month_number}`;
+      await this.addTimelineEvent(clientId, 'photo_deleted', `${label} progress photo deleted`);
+    }
     return res.rows[0] || null;
   }
 }
