@@ -93,7 +93,7 @@ export class ClientService {
 
     params.push(limit, offset);
     const dataRes = await this.db.query(
-      `SELECT c.id, c.first_name, c.last_name, c.phone_number, c.date_of_birth, c.primary_goal, c.status, c.is_archived, c.archived_at, c.updated_at,
+      `SELECT c.id, c.first_name, c.last_name, c.phone_number, c.date_of_birth, c.primary_goal, c.status, c.is_archived, c.archived_at, c.created_at, c.updated_at,
               a.current_weight_kg, a.bmi, a.bmi_category, a.diet_type,
               COALESCE((SELECT array_agg(t.tag ORDER BY t.tag) FROM client_tags t WHERE t.client_id = c.id), '{}') AS tags
        FROM clients c

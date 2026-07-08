@@ -24,6 +24,7 @@ export interface ApiAppointment {
   notes: string | null;
   tag: string | null;
   tag_other: string | null;
+  created_at: string;
 }
 
 export interface ApiAppointmentSettings {

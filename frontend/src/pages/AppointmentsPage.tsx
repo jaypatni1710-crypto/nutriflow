@@ -11,9 +11,9 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-type AppointmentStatus = 'new' | 'ongoing' | 'follow_up' | 'completed' | 'cancelled';
+export type AppointmentStatus = 'new' | 'ongoing' | 'follow_up' | 'completed' | 'cancelled';
 
-const STATUS_META: Record<AppointmentStatus, { label: string; dot: string; badge: string; desc: string }> = {
+export const STATUS_META: Record<AppointmentStatus, { label: string; dot: string; badge: string; desc: string }> = {
   new: { label: 'New', dot: 'bg-blue-500', badge: 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300', desc: 'First-time / newly booked client' },
   ongoing: { label: 'Ongoing', dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300', desc: 'Diet plan currently in progress' },
   follow_up: { label: 'Follow-up', dot: 'bg-purple-500', badge: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300', desc: 'Review / progress check-in' },
@@ -40,13 +40,13 @@ const TAG_OPTIONS = [
 
 // Resolves a tag value to its display label — falls back to the free-text
 // value when tag === 'other'.
-function tagLabel(tag: string, tagOther: string): string {
+export function tagLabel(tag: string, tagOther: string): string {
   if (!tag) return '—';
   if (tag === 'other') return tagOther || 'Other';
   return TAG_OPTIONS.find((t) => t.value === tag)?.label || tag;
 }
 
-interface Appointment {
+export interface Appointment {
   id: string;
   clientId: string;
   clientName: string;
@@ -57,10 +57,11 @@ interface Appointment {
   notes: string;
   tag: string;
   tagOther: string;
+  createdAt: string;
 }
 
 // ---- API <-> UI mapping helpers ----
-function apiToAppt(a: ApiAppointment): Appointment {
+export function apiToAppt(a: ApiAppointment): Appointment {
   return {
     id: a.id,
     clientId: a.client_id,
@@ -72,10 +73,11 @@ function apiToAppt(a: ApiAppointment): Appointment {
     notes: a.notes ?? '',
     tag: a.tag ?? '',
     tagOther: a.tag_other ?? '',
+    createdAt: a.created_at,
   };
 }
 
-function apptToApiBody(a: Omit<Appointment, 'id'>) {
+export function apptToApiBody(a: Omit<Appointment, 'id'>) {
   return {
     client_id: a.clientId,
     client_name: a.clientName,
@@ -238,9 +240,10 @@ function SettingsModal({
   );
 }
 
-function AddAppointmentModal({
+export function AddAppointmentModal({
   date,
   initial,
+  presetClient,
   allAppointments,
   durationMinutes,
   workingStart,
@@ -251,6 +254,7 @@ function AddAppointmentModal({
 }: {
   date: Date | null;
   initial: Appointment | null;
+  presetClient?: { id: string; name: string } | null;
   allAppointments: Appointment[];
   durationMinutes: number | '';
   workingStart: string;
@@ -261,8 +265,9 @@ function AddAppointmentModal({
 }) {
   const todayKey = todayDateKey();
 
-  const [clientQuery, setClientQuery] = useState(initial?.clientName || '');
-  const [clientId, setClientId] = useState(initial?.clientId || '');
+  const [clientQuery, setClientQuery] = useState(initial?.clientName || presetClient?.name || '');
+  const [clientId, setClientId] = useState(initial?.clientId || presetClient?.id || '');
+  const clientLocked = !!presetClient;
   const [showDropdown, setShowDropdown] = useState(false);
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [status, setStatus] = useState<AppointmentStatus>(initial?.status || 'new');
@@ -392,27 +397,38 @@ function AddAppointmentModal({
         <div className="space-y-4">
           <div className="relative" ref={wrapperRef}>
             <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Select Client</label>
-            <input
-              type="text"
-              value={clientQuery}
-              onChange={(e) => { setClientQuery(e.target.value); setClientId(''); setShowDropdown(true); }}
-              onFocus={() => setShowDropdown(true)}
-              placeholder="Type client name..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-            />
-            {showDropdown && clients.length > 0 && (
-              <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                {clients.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handleSelectClient(c)}
-                    className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-                  >
-                    {c.first_name} {c.last_name}
-                  </button>
-                ))}
-              </div>
+            {clientLocked ? (
+              <input
+                type="text"
+                value={clientQuery}
+                disabled
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm cursor-not-allowed"
+              />
+            ) : (
+              <>
+                <input
+                  type="text"
+                  value={clientQuery}
+                  onChange={(e) => { setClientQuery(e.target.value); setClientId(''); setShowDropdown(true); }}
+                  onFocus={() => setShowDropdown(true)}
+                  placeholder="Type client name..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                />
+                {showDropdown && clients.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {clients.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleSelectClient(c)}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      >
+                        {c.first_name} {c.last_name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
@@ -560,7 +576,7 @@ function AddAppointmentModal({
   );
 }
 
-function ViewAppointmentModal({
+export function ViewAppointmentModal({
   appt,
   onClose,
   onEdit,

@@ -9,6 +9,7 @@ export interface ClientListItem {
   status: 'active' | 'inactive' | 'completed' | 'on_hold';
   is_archived: boolean;
   archived_at: string | null;
+  created_at: string;
   updated_at: string;
   current_weight_kg: number | null;
   bmi: number | null;
