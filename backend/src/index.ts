@@ -61,7 +61,7 @@ app.all('/api/auth/*', delegate('/api/auth', (env) => {
     .filter(Boolean)[0] || 'http://localhost:5173';
   const emailCfg = {
     brevoApiKey: env.BREVO_API_KEY,
-    from: env.SMTP_FROM || 'jaypatni291103@gmail.com',
+    from: env.SMTP_FROM || 'nutriflow2911@gmail.com',
     frontendUrl: primaryFrontendUrl.replace(/\/+$/, ''),
   };
   const authService = new AuthService(db, env.JWT_SECRET, emailCfg);
