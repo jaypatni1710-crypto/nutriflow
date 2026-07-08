@@ -35,6 +35,6 @@ export interface DietPlanRow {
   is_editable: boolean;
   created_at: string;
   updated_at: string;
-
-  export type DietPlan = DietPlanRow;
+}
+export type DietPlan = DietPlanRow;
 export type DietPlanInput = CreateDietPlanInput;
