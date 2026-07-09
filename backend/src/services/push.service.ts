@@ -76,7 +76,7 @@ export class PushService {
       `SELECT id, dietitian_id, client_name, appt_date::text AS appt_date, time_from::text AS time_from, time_to::text AS time_to
        FROM appointments
        WHERE appt_date = $1::date
-         AND time_from = $2::time
+         AND time_from::time = $2::time
          AND status != 'cancelled'
          AND reminder_sent_at IS NULL`,
       [apptDate, timeFrom]
