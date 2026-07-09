@@ -24,4 +24,8 @@ interface Env {
   // Minutes to add to UTC to get the dietitian's local time (IST = 330).
   // Only needed if you want to override the default.
   APP_TIMEZONE_OFFSET_MINUTES?: string;
+
+  // Telegram bot notifications — free, works on phone + desktop automatically
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }

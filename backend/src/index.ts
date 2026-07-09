@@ -10,7 +10,7 @@ import { createClientRouter } from './routes/client.routes';
 import { createAppointmentRouter } from './routes/appointment.routes';
 import { PushService } from './services/push.service';
 import { createPushRouter } from './routes/push.routes';
-import { runAppointmentReminderCheck } from './scheduled/appointment-reminders';
+import { runAppointmentReminderCheck, runDailySummaryCheck } from './scheduled/appointment-reminders';
 import { DietPlanService } from './services/diet-plan.service';
 import { createDietPlanRouter } from './routes/diet-plan.routes';
 
@@ -108,5 +108,6 @@ export default {
   fetch: app.fetch,
   scheduled: async (_event: ScheduledEvent, env: Env, ctx: ExecutionContext) => {
     ctx.waitUntil(runAppointmentReminderCheck(env));
+    ctx.waitUntil(runDailySummaryCheck(env));
   },
 };
