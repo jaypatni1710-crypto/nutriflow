@@ -23,17 +23,17 @@ export async function sendTelegramMessage(botToken: string, chatId: string, text
   await callTelegramApi(botToken, 'sendMessage', { chat_id: chatId, text, parse_mode: 'HTML' });
 }
 
-// Sends the "📢 Receive NutriFlow Alerts?" prompt with Get / Cancel inline buttons.
+// Sends the "🔔 NutriFlow Alerts" prompt with Enable / Not now inline buttons.
 export async function sendTelegramAlertPrompt(botToken: string, chatId: string | number): Promise<void> {
   await callTelegramApi(botToken, 'sendMessage', {
     chat_id: chatId,
-    text: '📢 <b>Receive NutriFlow Alerts?</b>\n\nGet appointment reminders and daily summaries here on Telegram.',
+    text: '🔔 <b>NutriFlow Alerts</b>\n\nNever miss an appointment — get reminders 10 minutes before each one, plus your daily schedule every morning, right here on Telegram.',
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '✅ Get', callback_data: 'nf_get' },
-          { text: '❌ Cancel', callback_data: 'nf_cancel' },
+          { text: '🔔 Enable Alerts', callback_data: 'nf_get' },
+          { text: 'Not now', callback_data: 'nf_cancel' },
         ],
       ],
     },
@@ -45,9 +45,9 @@ export async function sendTelegramAlertPrompt(botToken: string, chatId: string |
 export async function sendTelegramContactRequest(botToken: string, chatId: string | number): Promise<void> {
   await callTelegramApi(botToken, 'sendMessage', {
     chat_id: chatId,
-    text: 'Tap the button below to share the phone number you used to register with NutriFlow.',
+    text: "One last step — tap below to confirm it's you. This shares only your phone number, nothing else.",
     reply_markup: {
-      keyboard: [[{ text: '📱 Share my phone number', request_contact: true }]],
+      keyboard: [[{ text: '📱 Confirm my number', request_contact: true }]],
       resize_keyboard: true,
       one_time_keyboard: true,
     },

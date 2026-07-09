@@ -8,8 +8,8 @@ import {
   answerTelegramCallback,
 } from '../services/telegram.service';
 
-// The keyword a user can type any time later to re-open the Get/Cancel
-// prompt, in case they hit Cancel (or never linked) the first time.
+// The keyword a user can type any time later to re-open the Enable/Cancel
+// prompt, in case they hit "Not now" (or never linked) the first time.
 const RELINK_KEYWORD = 'notify';
 
 export function createTelegramRouter(
@@ -50,7 +50,7 @@ export function createTelegramRouter(
           await sendTelegramMessage(
             botToken,
             chatId,
-            `Okay, no alerts for now. Type <b>${RELINK_KEYWORD}</b> anytime here to link later.`
+            `No problem — no alerts for now. Whenever you change your mind, just type <b>${RELINK_KEYWORD}</b> here.`
           );
         }
         return c.json({ ok: true });
@@ -61,20 +61,20 @@ export function createTelegramRouter(
         const chatId = msg.chat?.id;
         if (!chatId) return c.json({ ok: true });
 
-        // User tapped "Share my phone number" — try to match it to a dietitian account.
+        // User tapped "Confirm my number" — try to match it to a dietitian account.
         if (msg.contact) {
           const linked = await authService.linkTelegramByPhone(msg.contact.phone_number, String(chatId));
           if (linked) {
             await removeTelegramKeyboard(
               botToken,
               chatId,
-              `✅ You're linked, ${linked.first_name}! You'll now get NutriFlow alerts here.`
+              `✅ All set, ${linked.first_name}! You'll get your appointment reminders and daily schedule right here from now on.`
             );
           } else {
             await removeTelegramKeyboard(
               botToken,
               chatId,
-              `We couldn't find a NutriFlow account with that phone number. Make sure it matches the number you registered with, then type <b>${RELINK_KEYWORD}</b> to try again.`
+              `Hmm, that number doesn't match any NutriFlow account. Double-check it's the same number you registered with, then type <b>${RELINK_KEYWORD}</b> to try again.`
             );
           }
           return c.json({ ok: true });

@@ -13,6 +13,7 @@ export interface ReminderCandidate {
   appt_date: string;
   time_from: string;
   time_to: string;
+  telegram_chat_id: string | null;
 }
 
 export class PushService {
@@ -78,15 +79,21 @@ export class PushService {
   }
 
   // Finds appointments landing on `apptDate` at exactly `timeFrom` that
-  // haven't had a reminder sent yet, and are not cancelled.
+  // haven't had a reminder sent yet, and are not cancelled. Joins `users`
+  // so each candidate carries its own dietitian's telegram_chat_id — that's
+  // what lets reminders route to the right person's chat instead of one
+  // shared fallback chat.
   async findReminderCandidates(apptDate: string, timeFrom: string): Promise<ReminderCandidate[]> {
     const res = await this.db.query(
-      `SELECT id, dietitian_id, client_name, appt_date::text AS appt_date, time_from::text AS time_from, time_to::text AS time_to
-       FROM appointments
-       WHERE appt_date = $1::date
-         AND time_from::time = $2::time
-         AND status != 'cancelled'
-         AND reminder_sent_at IS NULL`,
+      `SELECT a.id, a.dietitian_id, a.client_name,
+              a.appt_date::text AS appt_date, a.time_from::text AS time_from, a.time_to::text AS time_to,
+              u.telegram_chat_id
+       FROM appointments a
+       JOIN users u ON u.id = a.dietitian_id
+       WHERE a.appt_date = $1::date
+         AND a.time_from::time = $2::time
+         AND a.status != 'cancelled'
+         AND a.reminder_sent_at IS NULL`,
       [apptDate, timeFrom]
     );
     return res.rows;

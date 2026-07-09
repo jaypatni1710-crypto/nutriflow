@@ -32,16 +32,31 @@ function getLocalNow(env: Env): Date {
   return new Date(Date.now() + offsetMinutes * 60_000);
 }
 
+// Formats a "HH:MM:SS" (or "HH:MM") string as 12-hour time, e.g. "17:00:00" -> "5:00 PM".
+function formatTime12h(hhmmss: string): string {
+  const [hStr, mStr] = hhmmss.split(':');
+  const h = Number(hStr);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${mStr} ${period}`;
+}
+
+function formatTimeRange(timeFrom: string, timeTo: string): string {
+  return `${formatTime12h(timeFrom)} – ${formatTime12h(timeTo)}`;
+}
+
 // ── 10-minutes-before reminder ────────────────────────────────────────────
 // Runs on every cron tick (every minute — see wrangler.toml `[triggers]`).
 // Finds appointments whose start time is exactly REMINDER_LEAD_MINUTES from
 // "now" (in the assumed local timezone) and sends a reminder (browser push +
 // Telegram, whichever are configured), then marks it as sent so it never
-// fires twice.
+// fires twice. Telegram reminders go to the dietitian's own linked chat;
+// TELEGRAM_CHAT_ID is only used as a fallback if that dietitian hasn't
+// linked their own chat yet.
 export async function runAppointmentReminderCheck(env: Env): Promise<void> {
   const havePush = !!(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY);
-  const haveTelegram = !!(env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID);
-  if (!havePush && !haveTelegram) {
+  const haveTelegramToken = !!env.TELEGRAM_BOT_TOKEN;
+  if (!havePush && !haveTelegramToken) {
     console.warn('Neither VAPID nor Telegram configured — skipping appointment reminder check');
     return;
   }
@@ -62,8 +77,8 @@ export async function runAppointmentReminderCheck(env: Env): Promise<void> {
 
   const candidates = await pushService.findReminderCandidates(targetDate, targetTime);
   for (const appt of candidates) {
-    const title = 'Upcoming appointment';
-    const body = `${appt.client_name} in ${REMINDER_LEAD_MINUTES} minutes (${appt.time_from.slice(0, 5)} – ${appt.time_to.slice(0, 5)})`;
+    const title = `Reminder — ${appt.client_name}`;
+    const body = `Starts in ${REMINDER_LEAD_MINUTES} minutes, ${formatTimeRange(appt.time_from, appt.time_to)}`;
 
     if (havePush) {
       await pushService.sendToDietitian(appt.dietitian_id, {
@@ -73,8 +88,9 @@ export async function runAppointmentReminderCheck(env: Env): Promise<void> {
       });
     }
 
-    if (haveTelegram) {
-      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN!, env.TELEGRAM_CHAT_ID!, `⏰ <b>${title}</b>\n${body}`);
+    const chatId = appt.telegram_chat_id || env.TELEGRAM_CHAT_ID;
+    if (haveTelegramToken && chatId) {
+      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN!, chatId, `⏰ <b>${title}</b>\n${body}`);
     }
 
     await pushService.markReminderSent(appt.id);
@@ -85,8 +101,10 @@ export async function runAppointmentReminderCheck(env: Env): Promise<void> {
 // Runs on every cron tick too, but only actually does anything once the
 // local clock hits DAILY_SUMMARY_TIME. Uses RATE_LIMIT_KV (if bound) to make
 // sure it only sends once even if the tick fires more than once that minute.
+// Sends each linked dietitian their own schedule; TELEGRAM_CHAT_ID is used
+// only as a fallback for anyone who hasn't linked a personal chat.
 export async function runDailySummaryCheck(env: Env): Promise<void> {
-  if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return;
+  if (!env.TELEGRAM_BOT_TOKEN) return;
 
   const localNow = getLocalNow(env);
   if (formatTimeKey(localNow) !== DAILY_SUMMARY_TIME) return;
@@ -101,25 +119,47 @@ export async function runDailySummaryCheck(env: Env): Promise<void> {
   }
 
   const db = getDb(env);
-  const res = await db.query(
-    `SELECT client_name, time_from::text AS time_from, time_to::text AS time_to
+
+  // Every dietitian who has linked a personal Telegram chat.
+  const usersRes = await db.query(`SELECT id, telegram_chat_id FROM users WHERE telegram_chat_id IS NOT NULL`);
+  const telegramUsers = usersRes.rows as { id: string; telegram_chat_id: string }[];
+
+  // Today's appointments across everyone, grouped by dietitian below.
+  const apptRes = await db.query(
+    `SELECT dietitian_id, client_name, time_from::text AS time_from, time_to::text AS time_to
      FROM appointments
      WHERE appt_date = $1::date AND status != 'cancelled'
-     ORDER BY time_from ASC`,
+     ORDER BY dietitian_id, time_from ASC`,
     [todayKey]
   );
-  const rows = res.rows as { client_name: string; time_from: string; time_to: string }[];
+  const appts = apptRes.rows as { dietitian_id: string; client_name: string; time_from: string; time_to: string }[];
 
-  if (rows.length === 0) {
-    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, 'Good morning! You have no appointments today.');
-    return;
+  const apptsByDietitian = new Map<string, typeof appts>();
+  for (const appt of appts) {
+    const list = apptsByDietitian.get(appt.dietitian_id) ?? [];
+    list.push(appt);
+    apptsByDietitian.set(appt.dietitian_id, list);
   }
 
-  const lines = rows
-    .map((r, i) => `${i + 1}. ${r.client_name} — ${r.time_from.slice(0, 5)} to ${r.time_to.slice(0, 5)}`)
-    .join('\n');
+  const buildMessage = (list: typeof appts): string => {
+    if (list.length === 0) {
+      return '☀️ Good morning! No appointments today — enjoy the free day! 🎉';
+    }
+    const lines = list
+      .map((r, i) => `${i + 1}. ${r.client_name} — ${formatTimeRange(r.time_from, r.time_to)}`)
+      .join('\n');
+    return `☀️ Good morning! Here's today's schedule:\n\n${lines}`;
+  };
 
-  const message = `Good morning! You have ${rows.length} appointment${rows.length > 1 ? 's' : ''} today:\n\n${lines}`;
-
-  await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, message);
+  if (telegramUsers.length > 0) {
+    // Each linked dietitian gets their own schedule in their own chat.
+    for (const user of telegramUsers) {
+      const list = apptsByDietitian.get(user.id) ?? [];
+      await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, user.telegram_chat_id, buildMessage(list));
+    }
+  } else if (env.TELEGRAM_CHAT_ID) {
+    // Nobody has linked a personal chat yet — fall back to the old
+    // behavior of one combined summary to the legacy global chat.
+    await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, buildMessage(appts));
+  }
 }
