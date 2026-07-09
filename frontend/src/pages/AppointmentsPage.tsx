@@ -327,9 +327,7 @@ export function AddAppointmentModal({
     setTimeToTouched(true);
   };
 
-  const nowTimeKey = new Date().toTimeString().slice(0, 5);
   const isPastDate = apptDate !== '' && apptDate < todayKey;
-  const isPastTime = apptDate === todayKey && timeFrom !== '' && timeFrom < nowTimeKey;
 
   // Find any existing appointment on the same date (excluding the one being edited)
   // whose time range overlaps with the one currently being entered.
@@ -377,7 +375,7 @@ export function AddAppointmentModal({
   const isTagValid = tag !== '' && (tag !== 'other' || tagOther.trim() !== '');
 
   const canSave =
-    clientId && apptDate && !isPastDate && !isPastTime && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid && !isOverMaxPerDay;
+    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid && !isOverMaxPerDay;
 
   const handleSave = () => {
     if (!canSave) return;
@@ -526,11 +524,6 @@ export function AddAppointmentModal({
             {!isWithinWorkingHours && (
               <p className="mt-1 text-xs text-red-500">
                 Appointment must be within working hours ({workingStart} – {workingEnd}).
-              </p>
-            )}
-            {isPastTime && (
-              <p className="mt-1 text-xs text-red-500">
-                This time has already passed today. Please pick a later time.
               </p>
             )}
           </div>
