@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { authApi } from '../lib/auth.api';
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  const [telegramChatId, setTelegramChatId] = useState('');
-  const [telegramSaving, setTelegramSaving] = useState(false);
-  const [telegramMessage, setTelegramMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -25,24 +20,6 @@ export default function ProfilePage() {
     };
     loadUser();
   }, [refreshUser]);
-
-  useEffect(() => {
-    setTelegramChatId(user?.telegram_chat_id || '');
-  }, [user?.telegram_chat_id]);
-
-  const handleSaveTelegram = async () => {
-    setTelegramSaving(true);
-    setTelegramMessage(null);
-    try {
-      await authApi.updateTelegramChatId(telegramChatId.trim() || null);
-      await refreshUser();
-      setTelegramMessage({ type: 'success', text: 'Telegram Chat ID saved.' });
-    } catch (err: any) {
-      setTelegramMessage({ type: 'error', text: err?.message || 'Failed to save Telegram Chat ID' });
-    } finally {
-      setTelegramSaving(false);
-    }
-  };
 
   const getInitials = () => {
     if (user?.first_name && user?.last_name) {
@@ -107,52 +84,14 @@ export default function ProfilePage() {
         )}
 
         {!loading && !error && (
-          <>
-            {/* Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
-              {detailItems.map((item) => (
-                <div key={item.label} className="space-y-1">
-                  <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">{item.label}</label>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{item.value || '-'}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Telegram Notifications */}
-            <div className="mt-10 pt-8 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-1">Telegram Notifications</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4">
-                Paste your Telegram Chat ID here to receive appointment reminders and daily summaries directly on Telegram.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input
-                  type="text"
-                  value={telegramChatId}
-                  onChange={(e) => setTelegramChatId(e.target.value)}
-                  placeholder="e.g. 123456789"
-                  className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                />
-                <button
-                  onClick={handleSaveTelegram}
-                  disabled={telegramSaving}
-                  className="px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
-                >
-                  {telegramSaving ? 'Saving...' : 'Save'}
-                </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6">
+            {detailItems.map((item) => (
+              <div key={item.label} className="space-y-1">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">{item.label}</label>
+                <p className="text-sm font-semibold text-slate-900 dark:text-white">{item.value || '-'}</p>
               </div>
-              {telegramMessage && (
-                <p
-                  className={`mt-2 text-sm ${
-                    telegramMessage.type === 'success'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-red-600 dark:text-red-400'
-                  }`}
-                >
-                  {telegramMessage.text}
-                </p>
-              )}
-            </div>
-          </>
+            ))}
+          </div>
         )}
       </div>
     </div>
