@@ -191,6 +191,30 @@ export class AuthService {
     ]);
   }
 
+  // Matches a phone number shared via Telegram's "Share Contact" button
+  // against a registered dietitian account, and links that account's
+  // telegram_chat_id if found. Numbers are compared on their last 10 digits
+  // only, since Telegram may include a country code (e.g. 919876543210)
+  // while the number stored at registration may or may not (9876543210,
+  // +91 9876543210, 91-9876543210, etc).
+  async linkTelegramByPhone(rawPhone: string, chatId: string): Promise<{ first_name: string } | null> {
+    const digitsOnly = rawPhone.replace(/\D/g, '');
+    const last10 = digitsOnly.slice(-10);
+    if (last10.length < 10) return null;
+
+    const result = await this.db.query(
+      `SELECT id, first_name FROM users
+       WHERE account_type = 'dietitian' AND right(regexp_replace(phone_number, '\\D', '', 'g'), 10) = $1
+       LIMIT 1`,
+      [last10]
+    );
+    if (result.rows.length === 0) return null;
+
+    const user = result.rows[0];
+    await this.db.query(`UPDATE users SET telegram_chat_id = $1, updated_at = now() WHERE id = $2`, [chatId, user.id]);
+    return { first_name: user.first_name };
+  }
+
   async getProfile(userId: string): Promise<PublicUser> {
     const result = await this.db.query(
       `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,

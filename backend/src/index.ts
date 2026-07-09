@@ -13,6 +13,7 @@ import { createPushRouter } from './routes/push.routes';
 import { runAppointmentReminderCheck, runDailySummaryCheck } from './scheduled/appointment-reminders';
 import { DietPlanService } from './services/diet-plan.service';
 import { createDietPlanRouter } from './routes/diet-plan.routes';
+import { createTelegramRouter } from './routes/telegram.routes';
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -95,6 +96,26 @@ app.all('/api/diet-plans/*', delegate('/api/diet-plans', (env) => {
   const db = getDb(env);
   const dietPlanService = new DietPlanService(db);
   return createDietPlanRouter(dietPlanService);
+}));
+
+app.all('/api/telegram/*', delegate('/api/telegram', (env) => {
+  const db = getDb(env);
+  const primaryFrontendUrl = (env.FRONTEND_URL || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)[0] || 'http://localhost:5173';
+  const emailCfg = {
+    brevoApiKey: env.BREVO_API_KEY,
+    from: env.SMTP_FROM || 'nutriflow2911@gmail.com',
+    frontendUrl: primaryFrontendUrl.replace(/\/+$/, ''),
+  };
+  const authService = new AuthService(db, env.JWT_SECRET, emailCfg);
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    const empty = new Hono<{ Bindings: Env }>();
+    empty.all('*', (c) => c.json({ ok: true }));
+    return empty;
+  }
+  return createTelegramRouter(authService, env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_WEBHOOK_SECRET);
 }));
 
 app.notFound((c) => c.json({ success: false, message: 'Not found' }, 404));

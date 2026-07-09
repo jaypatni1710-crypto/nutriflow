@@ -27,5 +27,8 @@ interface Env {
 
   // Telegram bot notifications — free, works on phone + desktop automatically
   TELEGRAM_BOT_TOKEN?: string;
-  TELEGRAM_CHAT_ID?: string;
+  TELEGRAM_CHAT_ID?: string; // legacy single global chat — kept as a fallback only
+  // Random string you choose yourself; set the same value when calling
+  // Telegram's setWebhook so only real Telegram requests are accepted.
+  TELEGRAM_WEBHOOK_SECRET?: string;
 }
