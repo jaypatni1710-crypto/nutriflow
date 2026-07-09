@@ -44,6 +44,12 @@ export class AppointmentService {
       params.push(value);
       fields.push(`${key} = $${params.length}`);
     });
+    // If the date or start time changed, this is effectively a new
+    // appointment time — clear reminder_sent_at so the 10-min-before
+    // reminder fires again for the new time instead of staying silent.
+    if (input.appt_date !== undefined || input.time_from !== undefined) {
+      fields.push(`reminder_sent_at = NULL`);
+    }
     if (fields.length === 0) return this.getById(dietitianId, id);
 
     const res = await this.db.query(
