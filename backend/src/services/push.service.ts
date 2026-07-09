@@ -1,6 +1,5 @@
 import { Pool } from 'pg';
-import * as webpush from 'web-push';
-import type { PushSubscription as WebPushSubscription } from 'web-push';
+import { buildPushPayload, type VapidKeys } from '@block65/webcrypto-web-push';
 
 export interface PushSubscriptionInput {
   endpoint: string;
@@ -17,8 +16,10 @@ export interface ReminderCandidate {
 }
 
 export class PushService {
+  private vapid: VapidKeys;
+
   constructor(private db: Pool, vapidSubject: string, vapidPublicKey: string, vapidPrivateKey: string) {
-    webpush.setVapidDetails(vapidSubject, vapidPublicKey, vapidPrivateKey);
+    this.vapid = { subject: vapidSubject, publicKey: vapidPublicKey, privateKey: vapidPrivateKey };
   }
 
   async saveSubscription(dietitianId: string, sub: PushSubscriptionInput) {
@@ -48,22 +49,29 @@ export class PushService {
   // Sends `payload` to every subscription this dietitian has registered
   // (they may have more than one — e.g. desktop + phone browser). Dead
   // subscriptions (410 Gone / 404 Not Found) are cleaned up automatically.
+  //
+  // Uses @block65/webcrypto-web-push + fetch() instead of the `web-push`
+  // npm package, because `web-push` relies on Node's `https.request`,
+  // which Cloudflare Workers does not implement — it only supports fetch().
   async sendToDietitian(dietitianId: string, payload: { title: string; body: string; url?: string }) {
     const subs = await this.listForDietitian(dietitianId);
     await Promise.all(
       subs.map(async (row) => {
-        const subscription: WebPushSubscription = {
+        const subscription = {
           endpoint: row.endpoint,
+          expirationTime: null,
           keys: { p256dh: row.p256dh, auth: row.auth },
         };
         try {
-          await webpush.sendNotification(subscription, JSON.stringify(payload));
-        } catch (err: any) {
-          if (err?.statusCode === 404 || err?.statusCode === 410) {
+          const { headers, body } = await buildPushPayload({ data: payload }, subscription, this.vapid);
+          const res = await fetch(row.endpoint, { method: 'POST', headers, body: body as BodyInit });
+          if (res.status === 404 || res.status === 410) {
             await this.removeSubscription(row.endpoint);
-          } else {
-            console.error('Push send failed for', row.endpoint, err);
+          } else if (!res.ok) {
+            console.error('Push send failed for', row.endpoint, res.status, await res.text());
           }
+        } catch (err: any) {
+          console.error('Push send failed for', row.endpoint, err);
         }
       })
     );
