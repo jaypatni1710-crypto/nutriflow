@@ -18,17 +18,3 @@ this step only when u run in the Github CodeSpace otherewise use wrangler login
 then use npm run build 
 wrangler deploy for backend
 wrangler pages deploy dist --project-name=nutriflow
-
-
-
-@jaypatni1710-crypto ➜ /workspaces/nutriflow/backend (main) $ npx web-push generate-vapid-keys
-
-=======================================
-
-Public Key:
-BIN9E5pNgR2d7ic9z7WF4mxSqsWbQtRZnetBWxYh9UYtpC6DCXWABlURWVX7VOBm8IBXz69Jdra8GhS-kBhpDbY
-
-Private Key:
-2u8wWwZC6aLUjhL5DqyAgi1kYS_9CXJxEsTVmfOXiCI
-
-=======================================
