@@ -89,4 +89,7 @@ export const authApi = {
 
   getUserStorageUsage: (user_id: string) =>
     request<{ total_bytes: number; file_count: number; configured: boolean }>(`/admin/users/${user_id}/storage-usage`),
+
+  updateTelegramChatId: (telegram_chat_id: string | null) =>
+    request('/telegram-chat-id', { method: 'PATCH', body: JSON.stringify({ telegram_chat_id }) }),
 };

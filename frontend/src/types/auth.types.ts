@@ -24,6 +24,7 @@ export interface User {
   updated_at: string;
   client_limit?: number | null;
   client_count?: number;
+  telegram_chat_id: string | null;
 }
 
 export interface AuthTokens {
