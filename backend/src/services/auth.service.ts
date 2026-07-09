@@ -184,12 +184,19 @@ export class AuthService {
     await this.db.query(`DELETE FROM refresh_tokens WHERE user_id = $1`, [row.user_id]);
   }
 
+  async updateTelegramChatId(userId: string, telegramChatId: string | null): Promise<void> {
+    await this.db.query(`UPDATE users SET telegram_chat_id = $1, updated_at = now() WHERE id = $2`, [
+      telegramChatId || null,
+      userId,
+    ]);
+  }
+
   async getProfile(userId: string): Promise<PublicUser> {
     const result = await this.db.query(
       `SELECT id, first_name, last_name, email, phone_number, organization_name, address, qualification, experience, account_type,
               status, email_verified, email_verified_at, decision_date,
               temporary_access_type, temporary_access_start, temporary_access_end,
-              last_login_at, created_at, updated_at
+              last_login_at, created_at, updated_at, telegram_chat_id
        FROM users WHERE id = $1`,
       [userId]
     );

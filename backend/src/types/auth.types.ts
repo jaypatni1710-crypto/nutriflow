@@ -30,6 +30,7 @@ export interface PublicUser {
   email: string;
   phone_number: string;
   organization_name: string;
+  telegram_chat_id: string | null;
   address: string | null;
   qualification: string | null;
   experience: number | null;

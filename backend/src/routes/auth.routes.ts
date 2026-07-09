@@ -76,6 +76,15 @@ export function createAuthRouter(authService: AuthService): Hono<{ Bindings: Env
     } catch (e) { return handleError(c, e); }
   });
 
+  // PATCH /telegram-chat-id
+  router.patch('/telegram-chat-id', authenticate, async (c) => {
+    try {
+      const body = await c.req.json();
+      await authService.updateTelegramChatId(c.get('user').sub, body.telegram_chat_id || null);
+      return c.json({ success: true, message: 'Telegram Chat ID saved' });
+    } catch (e) { return handleError(c, e); }
+  });
+
   // POST /logout
   router.post('/logout', async (c) => {
     const body = await c.req.json().catch(() => ({}));
