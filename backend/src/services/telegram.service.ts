@@ -59,6 +59,7 @@ export async function removeTelegramKeyboard(botToken: string, chatId: string | 
   await callTelegramApi(botToken, 'sendMessage', {
     chat_id: chatId,
     text,
+    parse_mode: 'HTML',
     reply_markup: { remove_keyboard: true },
   });
 }
