@@ -326,9 +326,11 @@ export class ClientService {
       recall_snacks: input.recall_snacks, recall_tea_coffee: input.recall_tea_coffee, recall_water: input.recall_water,
     };
 
+    const existingAssessmentRes = await this.db.query(`SELECT * FROM client_assessments WHERE client_id = $1`, [clientId]);
+    const existingAssessment = existingAssessmentRes.rows[0] || {};
+
     if (input.height_cm !== undefined || input.current_weight_kg !== undefined || input.activity_level !== undefined || input.date_of_birth !== undefined || input.gender !== undefined) {
-      const current = await this.db.query(`SELECT * FROM client_assessments WHERE client_id = $1`, [clientId]);
-      const cur = current.rows[0] || {};
+      const cur = existingAssessment;
       const heightCm = input.height_cm ?? cur.height_cm;
       const weightKg = input.current_weight_kg ?? cur.current_weight_kg;
       const dob = input.date_of_birth ?? existing.date_of_birth;
@@ -352,9 +354,6 @@ export class ClientService {
           `INSERT INTO client_progress_logs (client_id, weight_kg, bmi, waist_cm) VALUES ($1,$2,$3,$4)`,
           [clientId, weightKg, bmi, input.waist_cm ?? cur.waist_cm ?? null]
         );
-        await this.addTimelineEvent(clientId, 'weight_updated', `Weight updated to ${weightKg} kg`);
-      } else {
-        await this.addTimelineEvent(clientId, 'assessment_updated', 'Assessment details updated');
       }
     }
 
@@ -367,6 +366,20 @@ export class ClientService {
       aParams.push(clientId);
       await this.db.query(`INSERT INTO client_assessments (client_id) VALUES ($1) ON CONFLICT (client_id) DO NOTHING`, [clientId]);
       await this.db.query(`UPDATE client_assessments SET ${aSet.join(', ')} WHERE client_id = $${aParams.length}`, aParams);
+
+      const assessmentLabels: Record<string, string> = {
+        height_cm: 'Height', current_weight_kg: 'Current Weight', goal_weight_kg: 'Goal Weight',
+        waist_cm: 'Waist', hip_cm: 'Hip', chest_cm: 'Chest', neck_cm: 'Neck',
+        diet_type: 'Food Preference', specify_diet_type: 'Specify Food Preference', food_preferences: 'Client Likes to Eat',
+        disliked_foods: "Client Doesn't Like to Eat", food_allergies: 'Food Allergies', food_intolerances: 'Food Intolerances',
+        wake_up_time: 'Wake Up Time', sleep_time: 'Sleep Time', water_intake_per_day: 'Water Intake Per Day',
+        working_hours: 'Working Hours', stress_level: 'Stress Level', activity_level: 'Activity Level',
+        exercise_routine: 'Exercise Routine', lifestyle_notes: 'Notes',
+      };
+      const assessmentChanges = diffFieldChanges(existingAssessment, assessmentFields, assessmentLabels);
+      if (assessmentChanges.length > 0) {
+        await this.addTimelineEvent(clientId, 'assessment_updated', summarizeChanges(assessmentChanges));
+      }
     }
 
     const medFields: Record<string, any> = {
