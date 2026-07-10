@@ -67,6 +67,15 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
 
   useEffect(() => { load(); }, []);
 
+  // Forces a re-render every 30s so appointments that just crossed into
+  // the past hide their Edit button on their own, without needing an
+  // add/edit/delete action or a page refresh to trigger it.
+  const [, forceRecheck] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceRecheck((t) => t + 1), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const clientAppointments = useMemo(
     () =>
       allAppointments
