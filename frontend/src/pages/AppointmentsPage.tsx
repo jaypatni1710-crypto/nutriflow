@@ -399,12 +399,12 @@ export function AddAppointmentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md max-h-[85vh] flex flex-col">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 shrink-0">
           {initial ? 'Edit Appointment' : 'Add Appointment'}
         </h3>
 
-        <div className="space-y-4 overflow-y-auto pr-1">
+        <div className="space-y-4 overflow-y-auto px-1">
           <div className="relative" ref={wrapperRef}>
             <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Select Client</label>
             {clientLocked ? (
