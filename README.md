@@ -18,6 +18,8 @@ step 1: create token > edit worker > then just add account - hyperdrive -edit
 and select individual and email and nelow that again email and then click on the create or summery)
 this step only when u run in the Github CodeSpace otherewise use wrangler login 
 
-Then use: **npm run build** for both:
-**wrangler deploy** for backend
+Then use:
+**npx wrangler deploy** for backend
+&
+ **npm run build**
 **wrangler pages deploy dist --project-name=nutriflow** for frontend
