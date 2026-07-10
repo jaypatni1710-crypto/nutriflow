@@ -85,6 +85,19 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+// Capitalizes only the first character of a string, leaves the rest untouched
+function capFirst(v: string): string {
+  if (!v) return v;
+  return v.charAt(0).toUpperCase() + v.slice(1);
+}
+
+// Strips the auto-appended " L" so the raw number can be edited
+function waterNumberOnly(v?: string | null): string {
+  if (!v) return '';
+  const match = v.match(/[\d.]+/);
+  return match ? match[0] : '';
+}
+
 // Formats a date string (e.g. "1995-08-23" or ISO) as dd-mm-yyyy
 function formatDob(value?: string | null): string | null {
   if (!value) return null;
@@ -146,7 +159,7 @@ export default function ClientProfilePage() {
     setForm({
       first_name: c.first_name, last_name: c.last_name, phone_number: c.phone_number,
       email: c.email || '', gender: c.gender || '',
-      date_of_birth: c.date_of_birth || '', occupation: c.occupation || '', city: c.city || '',
+      date_of_birth: c.date_of_birth ? String(c.date_of_birth).slice(0, 10) : '', occupation: c.occupation || '', city: c.city || '',
       primary_goal: c.primary_goal || '', specify_goal: c.specify_goal || '',
       height_cm: a?.height_cm ?? '', current_weight_kg: a?.current_weight_kg ?? '',
       conditions: m?.conditions || [], specify_condition: m?.specify_condition || '', current_medications: m?.current_medications || '',
@@ -258,14 +271,8 @@ export default function ClientProfilePage() {
         </div>
         <div className="flex items-center gap-2">
           <StatusSelector status={c.status} onChange={handleStatusChange} />
-        {!editing && tab !== 'Progress' && tab !== 'Diet Plan' && tab !== 'Appointments' && tab !== 'Notes' && tab !== 'Timeline' && (
+        {tab !== 'Progress' && tab !== 'Diet Plan' && tab !== 'Appointments' && tab !== 'Notes' && tab !== 'Timeline' && (
           <button onClick={startEdit} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700">Edit</button>
-        )}
-        {editing && (
-          <div className="space-x-2">
-            <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
-            <button onClick={saveEdit} disabled={saving} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
-          </div>
         )}
         </div>
       </div>
@@ -348,21 +355,27 @@ export default function ClientProfilePage() {
         </>
       )}
 
-      {editing && (tab === 'Overview' || tab === 'Assessment' || tab === 'Medical History') && (
-        <div className="space-y-4">
+      {editing && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Edit Client</h3>
+              <button onClick={() => setEditing(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-2xl leading-none">&times;</button>
+            </div>
+            <div className="px-6 py-5 overflow-y-auto flex-1 space-y-4">
           <Section title="Personal & Goal Info">
             <div className="grid grid-cols-2 gap-4">
-              <Field label="First Name"><TextInput value={form.first_name} onChange={(e) => set({ first_name: e.target.value })} /></Field>
-              <Field label="Last Name"><TextInput value={form.last_name} onChange={(e) => set({ last_name: e.target.value })} /></Field>
+              <Field label="First Name"><TextInput value={form.first_name} onChange={(e) => set({ first_name: capFirst(e.target.value) })} /></Field>
+              <Field label="Last Name"><TextInput value={form.last_name} onChange={(e) => set({ last_name: capFirst(e.target.value) })} /></Field>
               <Field label="Phone Number"><TextInput value={form.phone_number} onChange={(e) => set({ phone_number: e.target.value })} /></Field>
               <Field label="Email"><TextInput value={form.email || ''} onChange={(e) => set({ email: e.target.value })} /></Field>
               <Field label="Gender"><Select options={['Male', 'Female', 'Other']} value={form.gender || ''} onChange={(e) => set({ gender: e.target.value })} /></Field>
               <Field label="Date of Birth"><TextInput type="date" value={form.date_of_birth || ''} onChange={(e) => set({ date_of_birth: e.target.value })} /></Field>
-              <Field label="Occupation"><TextInput value={form.occupation || ''} onChange={(e) => set({ occupation: e.target.value })} /></Field>
-              <Field label="City"><TextInput value={form.city || ''} onChange={(e) => set({ city: e.target.value })} /></Field>
+              <Field label="Occupation"><TextInput value={form.occupation || ''} onChange={(e) => set({ occupation: capFirst(e.target.value) })} /></Field>
+              <Field label="City"><TextInput value={form.city || ''} onChange={(e) => set({ city: capFirst(e.target.value) })} /></Field>
               <Field label="Primary Goal"><Select options={GOAL_OPTIONS} value={form.primary_goal || ''} onChange={(e) => set({ primary_goal: e.target.value })} /></Field>
               {form.primary_goal === 'Other' && (
-                <Field label="Specify Goal"><TextInput value={form.specify_goal || ''} onChange={(e) => set({ specify_goal: e.target.value })} /></Field>
+                <Field label="Specify Goal"><TextInput value={form.specify_goal || ''} onChange={(e) => set({ specify_goal: capFirst(e.target.value) })} /></Field>
               )}
             </div>
           </Section>
@@ -372,28 +385,47 @@ export default function ClientProfilePage() {
               <Field label="Current Weight (kg)"><TextInput type="number" value={form.current_weight_kg ?? ''} onChange={(e) => set({ current_weight_kg: e.target.value })} /></Field>
               <Field label="Wake Up Time"><TextInput type="time" value={form.wake_up_time || ''} onChange={(e) => set({ wake_up_time: e.target.value })} /></Field>
               <Field label="Sleep Time"><TextInput type="time" value={form.sleep_time || ''} onChange={(e) => set({ sleep_time: e.target.value })} /></Field>
-              <Field label="Water Intake Per Day"><TextInput value={form.water_intake_per_day || ''} onChange={(e) => set({ water_intake_per_day: e.target.value })} /></Field>
+              <Field label="Water Intake Per Day">
+                <TextInput
+                  type="number"
+                  inputMode="decimal"
+                  step={0.1}
+                  min={0}
+                  placeholder="e.g. 2.5"
+                  value={waterNumberOnly(form.water_intake_per_day)}
+                  onChange={(e) => {
+                    const num = e.target.value;
+                    set({ water_intake_per_day: num === '' ? '' : `${num} L` });
+                  }}
+                />
+              </Field>
               <Field label="Food Preference"><Select options={DIET_TYPES} value={form.diet_type || ''} onChange={(e) => set({ diet_type: e.target.value })} /></Field>
               {form.diet_type === 'Other' && (
-                <Field label="Specify Food Preference"><TextInput value={form.specify_diet_type || ''} onChange={(e) => set({ specify_diet_type: e.target.value })} /></Field>
+                <Field label="Specify Food Preference"><TextInput value={form.specify_diet_type || ''} onChange={(e) => set({ specify_diet_type: capFirst(e.target.value) })} /></Field>
               )}
               <Field label="Activity Level"><Select options={ACTIVITY_LEVELS} value={form.activity_level || ''} onChange={(e) => set({ activity_level: e.target.value })} /></Field>
-              <Field label="Client Likes to Eat"><TextInput value={form.food_preferences || ''} onChange={(e) => set({ food_preferences: e.target.value })} /></Field>
-              <Field label="Client Doesn't Like to Eat"><TextInput value={form.disliked_foods || ''} onChange={(e) => set({ disliked_foods: e.target.value })} /></Field>
-              <Field label="Notes" className="col-span-2"><TextArea rows={2} value={form.lifestyle_notes || ''} onChange={(e) => set({ lifestyle_notes: e.target.value })} /></Field>
+              <Field label="Client Likes to Eat"><TextInput value={form.food_preferences || ''} onChange={(e) => set({ food_preferences: capFirst(e.target.value) })} /></Field>
+              <Field label="Client Doesn't Like to Eat"><TextInput value={form.disliked_foods || ''} onChange={(e) => set({ disliked_foods: capFirst(e.target.value) })} /></Field>
+              <Field label="Notes" className="col-span-2"><TextArea rows={2} value={form.lifestyle_notes || ''} onChange={(e) => set({ lifestyle_notes: capFirst(e.target.value) })} /></Field>
             </div>
           </Section>
           <Section title="Medical History">
             <div className="space-y-4">
               <Field label="Conditions"><MultiSelectPills options={MEDICAL_CONDITIONS} selected={form.conditions || []} onChange={(v) => set({ conditions: v })} /></Field>
               {(form.conditions || []).includes('Other') && (
-                <Field label="Specify Condition"><TextInput value={form.specify_condition || ''} onChange={(e) => set({ specify_condition: e.target.value })} /></Field>
+                <Field label="Specify Condition"><TextInput value={form.specify_condition || ''} onChange={(e) => set({ specify_condition: capFirst(e.target.value) })} /></Field>
               )}
-              <Field label="Current Medications"><TextArea rows={2} value={form.current_medications || ''} onChange={(e) => set({ current_medications: e.target.value })} /></Field>
-              <Field label="Family Medical History"><TextArea rows={2} value={form.family_medical_history || ''} onChange={(e) => set({ family_medical_history: e.target.value })} /></Field>
-              <Field label="Medical Notes"><TextArea rows={2} value={form.medical_notes || ''} onChange={(e) => set({ medical_notes: e.target.value })} /></Field>
+              <Field label="Current Medications"><TextArea rows={2} value={form.current_medications || ''} onChange={(e) => set({ current_medications: capFirst(e.target.value) })} /></Field>
+              <Field label="Family Medical History"><TextArea rows={2} value={form.family_medical_history || ''} onChange={(e) => set({ family_medical_history: capFirst(e.target.value) })} /></Field>
+              <Field label="Medical Notes"><TextArea rows={2} value={form.medical_notes || ''} onChange={(e) => set({ medical_notes: capFirst(e.target.value) })} /></Field>
             </div>
           </Section>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-slate-200 dark:border-slate-800">
+              <button onClick={() => setEditing(false)} className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">Cancel</button>
+              <button onClick={saveEdit} disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60">{saving ? 'Saving...' : 'Save'}</button>
+            </div>
+          </div>
         </div>
       )}
 
