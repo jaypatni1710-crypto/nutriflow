@@ -304,9 +304,9 @@ export default function DashboardHomePage() {
           hint={dietPlans.length === 0 ? 'No plans created yet' : 'Total created'}
         />
         <StatCard
-          label="Diet Plans Sent"
+          label="No. of Clients Received Diet Plan"
           value={loading ? '—' : String(dietPlansSentCount)}
-          hint={dietPlansSentCount === 0 ? 'No plans sent yet' : "Clients' latest plan is sent"}
+          hint={dietPlansSentCount === 0 ? 'No clients received a plan yet' : 'Clients who have received a diet plan'}
         />
       </div>
 
