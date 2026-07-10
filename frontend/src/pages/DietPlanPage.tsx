@@ -569,7 +569,7 @@ export function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: 
   );
 }
 
-export function ClientDietPlanSection({ clientId, clientName, clientGoal }: { clientId: string; clientName: string; clientGoal?: string }) {
+export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoalChanged }: { clientId: string; clientName: string; clientGoal?: string; onGoalChanged?: (goal: string) => void }) {
   const [plans, setPlans] = useState<DietPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
@@ -606,6 +606,7 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal }: { cl
             ),
           ]
     );
+    if (plan.goal) onGoalChanged?.(plan.goal);
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
     setEditTarget(null);

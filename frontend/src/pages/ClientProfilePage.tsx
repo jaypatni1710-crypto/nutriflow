@@ -408,7 +408,14 @@ export default function ClientProfilePage() {
       )}
 
       {tab === 'Diet Plan' && (
-        <ClientDietPlanSection clientId={id!} clientName={`${c.first_name} ${c.last_name}`} clientGoal={c.primary_goal || ''} />
+        <ClientDietPlanSection
+          clientId={id!}
+          clientName={`${c.first_name} ${c.last_name}`}
+          clientGoal={c.primary_goal || ''}
+          onGoalChanged={(goal) => {
+            setProfile((prev) => (prev ? { ...prev, client: { ...prev.client, primary_goal: goal } } : prev));
+          }}
+        />
       )}
 
       {tab === 'Timeline' && <TimelineSection events={timeline} onNavigate={(t) => setTab(t as Tab)} />}
