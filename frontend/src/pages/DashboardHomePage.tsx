@@ -13,6 +13,7 @@ interface DietPlan {
   client_id: string;
   client_name: string;
   created_at: string;
+  closure_status: string | null;
 }
 
 function StatCard({ label, value, hint }: { label: string; value: string; hint: string }) {
@@ -30,20 +31,12 @@ function todayDateKey() {
   return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
 }
 
-// For each client, finds their most recent appointment (by date, then start
-// time) and returns whether that appointment's tag is "diet_plan_sent". Mirrors
-// the same logic used on the Diet Plan page so the two stay consistent.
-function computeSentByClient(appts: ApiAppointment[]): Record<string, boolean> {
-  const latestByClient: Record<string, ApiAppointment> = {};
-  appts.forEach((a) => {
-    const existing = latestByClient[a.client_id];
-    const key = `${a.appt_date}T${a.time_from}`;
-    const existingKey = existing ? `${existing.appt_date}T${existing.time_from}` : '';
-    if (!existing || key > existingKey) latestByClient[a.client_id] = a;
-  });
+// For each client, "Sent" means at least one of their diet plans was closed
+// with closure_status "sent" — purely plan-based, no appointment tag involved.
+function computeSentByClient(plans: DietPlan[]): Record<string, boolean> {
   const result: Record<string, boolean> = {};
-  Object.entries(latestByClient).forEach(([clientId, a]) => {
-    result[clientId] = a.tag === 'diet_plan_sent';
+  plans.forEach((p) => {
+    if (p.closure_status === 'sent') result[p.client_id] = true;
   });
   return result;
 }
@@ -222,7 +215,7 @@ export default function DashboardHomePage() {
     [appointments, todayKey, nowTimeStr]
   );
 
-  const sentByClient = useMemo(() => computeSentByClient(appointments), [appointments]);
+  const sentByClient = useMemo(() => computeSentByClient(dietPlans), [dietPlans]);
   const dietPlansSentCount = useMemo(
     () => Object.values(sentByClient).filter(Boolean).length,
     [sentByClient]

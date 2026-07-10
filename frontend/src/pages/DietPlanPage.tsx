@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { clientApi } from '../lib/client.api';
 import { dietPlanApi } from '../lib/diet-plan.api';
-import { appointmentApi, ApiAppointment } from '../lib/appointment.api';
 import { ClientListItem } from '../types/client.types';
 import { GOAL_OPTIONS } from '../lib/clientOptions';
 import { Toast } from '../components/clients/Toast';
@@ -76,28 +75,19 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// For each client, finds their most recent appointment (by date, then start
-// time) and returns whether that appointment's tag is "diet_plan_sent". If a
-// client has no appointments at all, they're left out of the map — treated
-// as "Not Sent" wherever it's read.
-function computeSentByClient(appts: ApiAppointment[]): Record<string, boolean> {
-  const latestByClient: Record<string, ApiAppointment> = {};
-  appts.forEach((a) => {
-    const existing = latestByClient[a.client_id];
-    const key = `${a.appt_date}T${a.time_from}`;
-    const existingKey = existing ? `${existing.appt_date}T${existing.time_from}` : '';
-    if (!existing || key > existingKey) latestByClient[a.client_id] = a;
-  });
+// For each client, "Sent" means at least one of their diet plans was closed
+// with closure_status "sent" (the reason picked when locking an old plan
+// because it was sent to the client). Purely plan-based — no appointment tag involved.
+function computeSentByClient(plans: DietPlan[]): Record<string, boolean> {
   const result: Record<string, boolean> = {};
-  Object.entries(latestByClient).forEach(([clientId, a]) => {
-    result[clientId] = a.tag === 'diet_plan_sent';
+  plans.forEach((p) => {
+    if (p.closure_status === 'sent') result[p.client_id] = true;
   });
   return result;
 }
 
 export default function DietPlanPage() {
   const [plans, setPlans] = useState<DietPlan[]>([]);
-  const [sentByClient, setSentByClient] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -105,12 +95,13 @@ export default function DietPlanPage() {
   const [viewTarget, setViewTarget] = useState<DietPlan | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DietPlan | null>(null);
 
+  const sentByClient = computeSentByClient(plans);
+
   const load = () => {
     setLoading(true);
-    Promise.all([dietPlanApi.list(), appointmentApi.list()])
-      .then(([plansRes, apptRes]) => {
+    dietPlanApi.list()
+      .then((plansRes) => {
         setPlans(plansRes.data);
-        setSentByClient(computeSentByClient(apptRes.data));
       })
       .catch(() => setToast('Failed to load diet plans'))
       .finally(() => setLoading(false));
