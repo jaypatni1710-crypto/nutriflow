@@ -108,12 +108,11 @@ export default function ClientProfilePage() {
   const [form, setForm] = useState<ClientFormData>({} as ClientFormData);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState('');
-  const [newNoteTitle, setNewNoteTitle] = useState('');
-  const [newNoteDescription, setNewNoteDescription] = useState('');
-  const [viewingNoteId, setViewingNoteId] = useState<string | null>(null);
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editNoteTitle, setEditNoteTitle] = useState('');
-  const [editNoteDescription, setEditNoteDescription] = useState('');
+  const [showNoteModal, setShowNoteModal] = useState(false);
+  const [noteEditTarget, setNoteEditTarget] = useState<{ id: string; title: string | null; content: string } | null>(null);
+  const [noteViewTarget, setNoteViewTarget] = useState<{ id: string; title: string | null; content: string; created_at: string } | null>(null);
+  const [noteTitleInput, setNoteTitleInput] = useState('');
+  const [noteDescInput, setNoteDescInput] = useState('');
 
   const load = useCallback(async (silent = false) => {
     if (!id) return;
@@ -186,45 +185,48 @@ export default function ClientProfilePage() {
     }
   };
 
-  const handleAddNote = async () => {
-    if (!id || !newNoteTitle.trim()) return;
-    await clientApi.addNote(id, newNoteTitle.trim(), newNoteDescription.trim() || undefined);
-    setNewNoteTitle('');
-    setNewNoteDescription('');
-    setToast('Note added');
-    load();
+  const openAddNote = () => {
+    setNoteEditTarget(null);
+    setNoteTitleInput('');
+    setNoteDescInput('');
+    setShowNoteModal(true);
+  };
+
+  const openEditNote = (note: { id: string; title: string | null; content: string }) => {
+    setNoteEditTarget(note);
+    setNoteTitleInput(note.title || '');
+    setNoteDescInput(note.content || '');
+    setShowNoteModal(true);
+  };
+
+  const handleSaveNote = async () => {
+    if (!id || !noteTitleInput.trim()) return;
+    if (noteEditTarget) {
+      await clientApi.updateNote(id, noteEditTarget.id, noteTitleInput.trim(), noteDescInput.trim() || undefined);
+      setToast('Note updated');
+    } else {
+      await clientApi.addNote(id, noteTitleInput.trim(), noteDescInput.trim() || undefined);
+      setToast('Note added');
+    }
+    setShowNoteModal(false);
+    setNoteEditTarget(null);
+    load(true);
   };
 
   const handleDeleteNote = async (noteId: string) => {
     if (!id) return;
     await clientApi.deleteNote(id, noteId);
     setToast('Note deleted');
-    load();
-  };
-
-  const toggleViewNote = (noteId: string) => {
-    setEditingNoteId(null);
-    setViewingNoteId((prev) => (prev === noteId ? null : noteId));
-  };
-
-  const startEditNote = (note: { id: string; title: string | null; content: string }) => {
-    setViewingNoteId(null);
-    setEditingNoteId(note.id);
-    setEditNoteTitle(note.title || '');
-    setEditNoteDescription(note.content || '');
-  };
-
-  const cancelEditNote = () => {
-    setEditingNoteId(null);
-  };
-
-  const saveEditNote = async () => {
-    if (!id || !editingNoteId || !editNoteTitle.trim()) return;
-    await clientApi.updateNote(id, editingNoteId, editNoteTitle.trim(), editNoteDescription.trim() || undefined);
-    setEditingNoteId(null);
-    setToast('Note updated');
     load(true);
   };
+
+  function truncateNote(text: string): string {
+    if (!text) return '—';
+    const words = text.trim().split(/\s+/);
+    if (words.length > 5) return words.slice(0, 5).join(' ') + '...';
+    if (text.length > 20) return text.slice(0, 20) + '...';
+    return text;
+  }
 
   const handleStatusChange = async (status: string) => {
     if (!id) return;
@@ -423,86 +425,135 @@ export default function ClientProfilePage() {
       {tab === 'Notes' && (
         <>
           <ClientTagsEditor clientId={id!} tags={tags || []} onChanged={() => load(true)} />
-          <Section title="Private Dietitian Notes">
-          <div className="mb-4 space-y-3">
-            <Field label="Title">
-              <TextInput placeholder="Note title" value={newNoteTitle} onChange={(e) => setNewNoteTitle(e.target.value)} />
-            </Field>
-            <Field label="Description">
-              <TextArea rows={4} placeholder="Add details..." value={newNoteDescription} onChange={(e) => setNewNoteDescription(e.target.value)} />
-            </Field>
-            <button onClick={handleAddNote} disabled={!newNoteTitle.trim()} className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Save</button>
+
+          <div className="flex items-center justify-between mb-4 mt-2">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-white">Private Dietitian Notes</h4>
+            <button
+              onClick={openAddNote}
+              className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-semibold transition-colors"
+            >
+              Add Note
+            </button>
           </div>
-          <div className="space-y-3">
-            {notes.length === 0 ? <p className="text-sm text-slate-400">No notes yet.</p> : notes.map((n) => (
-              <div key={n.id} className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 text-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-slate-900 dark:text-white">{n.title || 'Untitled'}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      onClick={() => toggleViewNote(n.id)}
-                      title="View"
-                      aria-label="View note"
-                      className="p-1.5 rounded text-slate-500 hover:text-teal-600 hover:bg-white dark:hover:bg-slate-900"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => startEditNote(n)}
-                      title="Edit"
-                      aria-label="Edit note"
-                      className="p-1.5 rounded text-slate-500 hover:text-teal-600 hover:bg-white dark:hover:bg-slate-900"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                        <path d="m15 5 4 4" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteNote(n.id)}
-                      title="Delete"
-                      aria-label="Delete note"
-                      className="p-1.5 rounded text-slate-500 hover:text-red-600 hover:bg-white dark:hover:bg-slate-900"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-                        <path d="M3 6h18" />
-                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" />
-                        <path d="M14 11v6" />
-                      </svg>
-                    </button>
-                  </div>
+
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+            {notes.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-10">No notes yet. Click "Add Note" to create one.</p>
+            ) : (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-500 dark:text-slate-400">
+                    <th className="px-4 py-3">Title</th>
+                    <th className="px-4 py-3">Description</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {notes.map((n) => (
+                    <tr key={n.id} className="border-b border-slate-100 dark:border-slate-800/60 last:border-0">
+                      <td className="px-4 py-3 text-slate-900 dark:text-white font-medium whitespace-nowrap">{n.title || 'Untitled'}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{truncateNote(n.content || '')}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setNoteViewTarget(n)}
+                            title="View"
+                            aria-label="View note"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
+                              <circle cx="12" cy="12" r="3" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => openEditNote(n)}
+                            title="Edit"
+                            aria-label="Edit note"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                              <path d="m15 5 4 4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDeleteNote(n.id)}
+                            title="Delete"
+                            aria-label="Delete note"
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                              <path d="M3 6h18" />
+                              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                              <path d="M10 11v6" />
+                              <path d="M14 11v6" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {showNoteModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
+                  {noteEditTarget ? 'Edit Note' : 'Add Note'}
+                </h3>
+                <div className="space-y-4">
+                  <Field label="Title">
+                    <TextInput placeholder="Note title" value={noteTitleInput} onChange={(e) => setNoteTitleInput(e.target.value)} />
+                  </Field>
+                  <Field label="Description">
+                    <TextArea rows={4} placeholder="Add details..." value={noteDescInput} onChange={(e) => setNoteDescInput(e.target.value)} />
+                  </Field>
                 </div>
-
-                {viewingNoteId === n.id && editingNoteId !== n.id && (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700">
-                    <p className="text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{n.content || 'No description'}</p>
-                    <span className="block mt-2 text-xs text-slate-400">{new Date(n.created_at).toLocaleString()}</span>
-                  </div>
-                )}
-
-                {editingNoteId === n.id && (
-                  <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-700 space-y-3">
-                    <Field label="Title">
-                      <TextInput value={editNoteTitle} onChange={(e) => setEditNoteTitle(e.target.value)} />
-                    </Field>
-                    <Field label="Description">
-                      <TextArea rows={4} value={editNoteDescription} onChange={(e) => setEditNoteDescription(e.target.value)} />
-                    </Field>
-                    <div className="flex justify-end gap-2">
-                      <button onClick={cancelEditNote} className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700">Cancel</button>
-                      <button onClick={saveEditNote} disabled={!editNoteTitle.trim()} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">Save</button>
-                    </div>
-                  </div>
-                )}
+                <div className="flex justify-end gap-2 mt-6">
+                  <button
+                    onClick={() => { setShowNoteModal(false); setNoteEditTarget(null); }}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveNote}
+                    disabled={!noteTitleInput.trim()}
+                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50"
+                  >
+                    Save
+                  </button>
+                </div>
               </div>
-            ))}
-          </div>
-        </Section>
+            </div>
+          )}
+
+          {noteViewTarget && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 w-full max-w-md">
+                <div className="flex items-start justify-between gap-4 mb-3">
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">{noteViewTarget.title || 'Untitled'}</h3>
+                  <button
+                    onClick={() => setNoteViewTarget(null)}
+                    title="Close"
+                    aria-label="Close"
+                    className="p-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="text-sm text-slate-700 dark:text-slate-200 whitespace-pre-wrap">{noteViewTarget.content || 'No description'}</p>
+                <span className="block mt-3 text-xs text-slate-400">{new Date(noteViewTarget.created_at).toLocaleString()}</span>
+              </div>
+            </div>
+          )}
         </>
       )}
 
