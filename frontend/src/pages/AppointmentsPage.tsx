@@ -300,6 +300,13 @@ export function AddAppointmentModal({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Lock background page scroll while this modal is open.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, []);
+
   useEffect(() => {
     const q = clientQuery.trim();
     if (!q) { setClients([]); return; }
