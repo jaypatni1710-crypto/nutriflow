@@ -431,7 +431,7 @@ export function AddAppointmentModal({
                   onChange={(e) => { setClientQuery(e.target.value); setClientId(''); setShowDropdown(true); }}
                   onFocus={() => setShowDropdown(true)}
                   placeholder="Type client name..."
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-insetfocus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
                 />
                 {showDropdown && clients.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -456,7 +456,7 @@ export function AddAppointmentModal({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as AppointmentStatus)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
             >
               {(Object.keys(STATUS_META) as AppointmentStatus[]).map((s) => (
                 <option key={s} value={s}>{STATUS_META[s].label}</option>
@@ -480,7 +480,7 @@ export function AddAppointmentModal({
               value={apptDate}
               min={todayKey}
               onChange={(e) => setApptDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
             />
             {isPastDate && <p className="mt-1 text-xs text-red-500">Cannot create an appointment in the past.</p>}
             {hasSameClientSameDay && (
@@ -509,7 +509,7 @@ export function AddAppointmentModal({
                 min={hasWorkingHours ? workingStart : undefined}
                 max={hasWorkingHours ? workingEnd : undefined}
                 onChange={(e) => handleTimeFromChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
               />
               <span className="text-slate-400 text-sm shrink-0">to</span>
               <input
@@ -518,7 +518,7 @@ export function AddAppointmentModal({
                 min={hasWorkingHours ? workingStart : undefined}
                 max={hasWorkingHours ? workingEnd : undefined}
                 onChange={(e) => handleTimeToChange(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
               />
             </div>
             {durationMinutes !== '' && !timeToTouched && (
@@ -551,7 +551,7 @@ export function AddAppointmentModal({
             <select
               value={tag}
               onChange={(e) => { setTag(e.target.value); if (e.target.value !== 'other') setTagOther(''); }}
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
             >
               <option value="">Select a tag...</option>
               {TAG_OPTIONS.map((t) => (
@@ -564,7 +564,7 @@ export function AddAppointmentModal({
                 value={tagOther}
                 onChange={(e) => setTagOther(e.target.value)}
                 placeholder="Describe the tag..."
-                className="mt-2 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="mt-2 w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset"
               />
             )}
           </div>
@@ -578,7 +578,7 @@ export function AddAppointmentModal({
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               placeholder="Any additional notes for this appointment..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-inset resize-none"
             />
           </div>
         </div>
