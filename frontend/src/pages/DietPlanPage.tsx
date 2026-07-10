@@ -75,17 +75,6 @@ function formatDate(iso: string) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// For each client, "Sent" means at least one of their diet plans was closed
-// with closure_status "sent" (the reason picked when locking an old plan
-// because it was sent to the client). Purely plan-based — no appointment tag involved.
-function computeSentByClient(plans: DietPlan[]): Record<string, boolean> {
-  const result: Record<string, boolean> = {};
-  plans.forEach((p) => {
-    if (p.closure_status === 'sent') result[p.client_id] = true;
-  });
-  return result;
-}
-
 export default function DietPlanPage() {
   const [plans, setPlans] = useState<DietPlan[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +84,6 @@ export default function DietPlanPage() {
   const [viewTarget, setViewTarget] = useState<DietPlan | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DietPlan | null>(null);
 
-  const sentByClient = computeSentByClient(plans);
 
   const load = () => {
     setLoading(true);
@@ -206,7 +194,7 @@ export default function DietPlanPage() {
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{formatDate(p.created_at)}</td>
                   <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{p.goal || '—'}</td>
                   <td className="px-4 py-3">
-                    {sentByClient[p.client_id] ? (
+                    {p.closure_status === 'sent' ? (
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Sent
