@@ -118,11 +118,23 @@ export default function DietPlanPage() {
 
   useEffect(load, []);
 
-  const handleSaved = (plan: DietPlan, wasEdit: boolean) => {
+  const handleSaved = (plan: DietPlan, wasEdit: boolean, closureInfo?: { status: string; other: string }) => {
     setPlans((prev) =>
       wasEdit
         ? prev.map((p) => (p.id === plan.id ? plan : p))
-        : [plan, ...prev.map((p) => (p.client_id === plan.client_id ? { ...p, is_editable: false } : p))]
+        : [
+            plan,
+            ...prev.map((p) =>
+              p.client_id === plan.client_id && p.is_editable
+                ? {
+                    ...p,
+                    is_editable: false,
+                    closure_status: closureInfo?.status || null,
+                    closure_note: closureInfo?.status === 'other' ? closureInfo.other || null : null,
+                  }
+                : p
+            ),
+          ]
     );
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
@@ -288,7 +300,7 @@ export function DietPlanModal({
   existingPlans: DietPlan[];
   initial: DietPlan | null;
   onClose: () => void;
-  onSaved: (plan: DietPlan, wasEdit: boolean) => void;
+  onSaved: (plan: DietPlan, wasEdit: boolean, closureInfo?: { status: string; other: string }) => void;
   lockedClientId?: string;
   lockedClientName?: string;
   initialGoal?: string;
@@ -354,7 +366,7 @@ export function DietPlanModal({
       const res = initial
         ? await dietPlanApi.update(initial.id, body)
         : await dietPlanApi.create(body);
-      onSaved(res.data, !!initial);
+      onSaved(res.data, !!initial, hasPreviousPlan && prevStatus ? { status: prevStatus, other: prevStatusOther } : undefined);
     } catch {
       setSaving(false);
     }
@@ -576,11 +588,23 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal }: { cl
 
   useEffect(load, [clientId]);
 
-  const handleSaved = (plan: DietPlan, wasEdit: boolean) => {
+  const handleSaved = (plan: DietPlan, wasEdit: boolean, closureInfo?: { status: string; other: string }) => {
     setPlans((prev) =>
       wasEdit
         ? prev.map((p) => (p.id === plan.id ? plan : p))
-        : [plan, ...prev.map((p) => ({ ...p, is_editable: false }))]
+        : [
+            plan,
+            ...prev.map((p) =>
+              p.is_editable
+                ? {
+                    ...p,
+                    is_editable: false,
+                    closure_status: closureInfo?.status || null,
+                    closure_note: closureInfo?.status === 'other' ? closureInfo.other || null : null,
+                  }
+                : p
+            ),
+          ]
     );
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
