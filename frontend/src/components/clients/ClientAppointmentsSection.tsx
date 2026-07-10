@@ -37,7 +37,7 @@ function formatDate(dateKey: string): string {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-export function ClientAppointmentsSection({ clientId, clientName }: { clientId: string; clientName: string }) {
+export function ClientAppointmentsSection({ clientId, clientName, onChanged }: { clientId: string; clientName: string; onChanged?: () => void }) {
   // We fetch ALL of the dietitian's appointments (not just this client's)
   // because the Add/Edit modal needs the full schedule to check for
   // time-overlaps and the daily appointment limit across every client.
@@ -98,6 +98,7 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
           setAllAppointments((prev) => [...prev, created]);
           setToast('Appointment created');
         }
+        onChanged?.();
       } catch (err) {
         console.error(err);
         setToast('Failed to save appointment');
@@ -110,6 +111,7 @@ export function ClientAppointmentsSection({ clientId, clientName }: { clientId: 
       await appointmentApi.remove(apptId);
       setAllAppointments((prev) => prev.filter((a) => a.id !== apptId));
       setToast('Appointment deleted');
+      onChanged?.();
     } catch (err) {
       console.error(err);
       setToast('Failed to delete appointment');

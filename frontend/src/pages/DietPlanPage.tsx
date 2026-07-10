@@ -569,7 +569,7 @@ export function ViewDietPlanModal({ plan, onClose }: { plan: DietPlan; onClose: 
   );
 }
 
-export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoalChanged }: { clientId: string; clientName: string; clientGoal?: string; onGoalChanged?: (goal: string) => void }) {
+export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoalChanged, onChanged }: { clientId: string; clientName: string; clientGoal?: string; onGoalChanged?: (goal: string) => void; onChanged?: () => void }) {
   const [plans, setPlans] = useState<DietPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
@@ -610,7 +610,9 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoal
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
     setEditTarget(null);
+    onChanged?.();
   };
+
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -621,6 +623,7 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoal
           .map((p) => (p.plan_number > deleteTarget.plan_number ? { ...p, plan_number: p.plan_number - 1 } : p))
       );
       setToast('Diet plan deleted');
+      onChanged?.();
     } catch {
       setToast('Failed to delete diet plan');
     } finally {

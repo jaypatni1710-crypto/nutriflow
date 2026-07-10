@@ -405,7 +405,7 @@ export default function ClientProfilePage() {
 
       {tab === 'Appointments' && (
         <>
-          <ClientAppointmentsSection clientId={id!} clientName={`${c.first_name} ${c.last_name}`} />
+          <ClientAppointmentsSection clientId={id!} clientName={`${c.first_name} ${c.last_name}`} onChanged={() => load(true)} />
         </>
       )}
 
@@ -417,6 +417,7 @@ export default function ClientProfilePage() {
           onGoalChanged={(goal) => {
             setProfile((prev) => (prev ? { ...prev, client: { ...prev.client, primary_goal: goal } } : prev));
           }}
+          onChanged={() => load(true)}
         />
       )}
 
