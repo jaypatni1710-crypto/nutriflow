@@ -146,15 +146,26 @@ export default function DietPlanPage() {
       await dietPlanApi.remove(deleteTarget.id);
       // Renumber locally: any plan for the same client with a higher
       // plan_number shifts down by one, matching the backend's renumbering.
-      setPlans((prev) =>
-        prev
+      setPlans((prev) => {
+        const updated = prev
           .filter((p) => p.id !== deleteTarget.id)
           .map((p) =>
             p.client_id === deleteTarget.client_id && p.plan_number > deleteTarget.plan_number
               ? { ...p, plan_number: p.plan_number - 1 }
               : p
-          )
-      );
+          );
+        // Deleting the latest plan unlocks whatever is now the highest
+        // plan_number for that client — mirror that locally so the edit
+        // icon unlocks immediately without a page refresh.
+        if (deleteTarget.is_editable) {
+          const siblings = updated.filter((p) => p.client_id === deleteTarget.client_id);
+          if (siblings.length > 0) {
+            const newLatest = siblings.reduce((a, b) => (b.plan_number > a.plan_number ? b : a));
+            return updated.map((p) => (p.id === newLatest.id ? { ...p, is_editable: true } : p));
+          }
+        }
+        return updated;
+      });
       setToast('Diet plan deleted');
     } catch {
       setToast('Failed to delete diet plan');
@@ -617,11 +628,16 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal, onGoal
     if (!deleteTarget) return;
     try {
       await dietPlanApi.remove(deleteTarget.id);
-      setPlans((prev) =>
-        prev
+      setPlans((prev) => {
+        const updated = prev
           .filter((p) => p.id !== deleteTarget.id)
-          .map((p) => (p.plan_number > deleteTarget.plan_number ? { ...p, plan_number: p.plan_number - 1 } : p))
-      );
+          .map((p) => (p.plan_number > deleteTarget.plan_number ? { ...p, plan_number: p.plan_number - 1 } : p));
+        if (deleteTarget.is_editable && updated.length > 0) {
+          const newLatest = updated.reduce((a, b) => (b.plan_number > a.plan_number ? b : a));
+          return updated.map((p) => (p.id === newLatest.id ? { ...p, is_editable: true } : p));
+        }
+        return updated;
+      });
       setToast('Diet plan deleted');
       onChanged?.();
     } catch {
