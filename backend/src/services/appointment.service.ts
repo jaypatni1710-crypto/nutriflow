@@ -57,6 +57,14 @@ export class AppointmentService {
        WHERE dietitian_id = $1 AND id = $2 RETURNING ${APPT_COLUMNS}`,
       params
     );
+    if (res.rows[0]) {
+      await logClientTimelineEvent(
+        this.db,
+        res.rows[0].client_id,
+        'appointment_updated',
+        `Appointment updated for ${res.rows[0].appt_date} at ${res.rows[0].time_from}`
+      );
+    }
     return res.rows[0] || null;
   }
 
@@ -70,10 +78,19 @@ export class AppointmentService {
 
   async remove(dietitianId: string, id: string) {
     const res = await this.db.query(
-      `DELETE FROM appointments WHERE dietitian_id = $1 AND id = $2 RETURNING id`,
+      `DELETE FROM appointments WHERE dietitian_id = $1 AND id = $2 RETURNING id, client_id, appt_date::text AS appt_date, time_from`,
       [dietitianId, id]
     );
-    return (res.rowCount ?? 0) > 0;
+    const deleted = res.rows[0];
+    if (deleted) {
+      await logClientTimelineEvent(
+        this.db,
+        deleted.client_id,
+        'appointment_deleted',
+        `Appointment for ${deleted.appt_date} at ${deleted.time_from} deleted`
+      );
+    }
+    return !!deleted;
   }
 
   async getSettings(dietitianId: string): Promise<AppointmentSettings> {

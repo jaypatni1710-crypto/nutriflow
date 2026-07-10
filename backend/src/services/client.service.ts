@@ -461,8 +461,15 @@ export class ClientService {
   }
 
   async deleteNote(clientId: string, noteId: string) {
-    const res = await this.db.query(`DELETE FROM client_notes WHERE id = $1 AND client_id = $2`, [noteId, clientId]);
-    return (res.rowCount ?? 0) > 0;
+    const res = await this.db.query(
+      `DELETE FROM client_notes WHERE id = $1 AND client_id = $2 RETURNING title`,
+      [noteId, clientId]
+    );
+    const deleted = res.rows[0];
+    if (deleted) {
+      await this.addTimelineEvent(clientId, 'note_deleted', `"${deleted.title}" deleted`);
+    }
+    return !!deleted;
   }
 
   async addTimelineEvent(clientId: string, eventType: string, description: string) {

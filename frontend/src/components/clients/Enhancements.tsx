@@ -462,9 +462,9 @@ const FILTER_OPTIONS: { label: string; values: string[] }[] = [
   { label: 'Assessment', values: ['assessment_updated'] },
   { label: 'Medical History', values: ['medical_history_updated', 'report_uploaded', 'report_deleted'] },
   { label: 'Progress', values: ['photo_uploaded', 'photo_deleted', 'weight_updated'] },
-  { label: 'Appointments', values: ['appointment_scheduled'] },
-  { label: 'Diet Plan', values: ['diet_plan_created'] },
-  { label: 'Notes', values: ['note_added', 'note_updated'] },
+  { label: 'Appointments', values: ['appointment_scheduled', 'appointment_updated', 'appointment_deleted'] },
+  { label: 'Diet Plan', values: ['diet_plan_created', 'diet_plan_updated', 'diet_plan_deleted'] },
+  { label: 'Notes', values: ['note_added', 'note_updated', 'note_deleted'] },
 ];
 
 // Maps each event type to the profile tab it should jump to on click.
@@ -473,10 +473,10 @@ const EVENT_TAB_MAP: Record<string, string> = {
   goal_updated: 'Overview', status_changed: 'Overview', overview_updated: 'Overview',
   archived: 'Overview', restored: 'Overview',
   assessment_updated: 'Assessment',
-  medical_history_updated: 'Medical History', report_uploaded: 'Medical History', report_deleted: 'Medical History',
-  photo_uploaded: 'Progress', photo_deleted: 'Progress', weight_updated: 'Progress',
-  appointment_scheduled: 'Appointments',
-  diet_plan_created: 'Diet Plan',
+  medical_history_updated: 'Medical History', report_uploaded: 'Medical History',
+  photo_uploaded: 'Progress', weight_updated: 'Progress',
+  appointment_scheduled: 'Appointments', appointment_updated: 'Appointments',
+  diet_plan_created: 'Diet Plan', diet_plan_updated: 'Diet Plan',
   note_added: 'Notes', note_updated: 'Notes',
 };
 
@@ -550,6 +550,21 @@ const CREATED_META = {
   ),
 };
 
+// Delete-type events always get a muted-red look and are never clickable —
+// there's nothing to navigate to once something's been deleted.
+const DELETE_EVENT_TYPES = new Set([
+  'appointment_deleted', 'diet_plan_deleted', 'note_deleted', 'photo_deleted', 'report_deleted',
+]);
+
+const DELETE_META = {
+  style: 'bg-red-50 dark:bg-red-500/10 text-red-500 dark:text-red-400',
+  icon: (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" /><path d="M10 11v6" /><path d="M14 11v6" />
+    </svg>
+  ),
+};
+
 function formatTimelineDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '';
@@ -578,8 +593,9 @@ export function TimelineSection({ events, onNavigate }: { events: ClientTimeline
       ) : (
         <div>
           {filtered.map((e, idx) => {
-            const targetTab = EVENT_TAB_MAP[e.event_type];
-            const meta = (targetTab && CATEGORY_META[targetTab]) || CREATED_META;
+            const isDelete = DELETE_EVENT_TYPES.has(e.event_type);
+            const targetTab = isDelete ? undefined : EVENT_TAB_MAP[e.event_type];
+            const meta = isDelete ? DELETE_META : (targetTab && CATEGORY_META[targetTab]) || CREATED_META;
             const isLast = idx === filtered.length - 1;
 
             const inner = (

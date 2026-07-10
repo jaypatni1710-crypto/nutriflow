@@ -112,6 +112,7 @@ export class DietPlanService {
         `UPDATE diet_plans SET ${fields.join(', ')}, updated_at = now() WHERE dietitian_id = $1 AND id = $2`,
         params
       );
+      await logClientTimelineEvent(this.db, current.client_id, 'diet_plan_updated', `Diet Plan #${current.plan_number} updated`);
     }
 
     if (input.goal !== undefined && input.goal) {
@@ -142,6 +143,7 @@ export class DietPlanService {
       `UPDATE diet_plans SET plan_number = plan_number - 1 WHERE client_id = $1 AND plan_number > $2`,
       [plan.client_id, plan.plan_number]
     );
+    await logClientTimelineEvent(this.db, plan.client_id, 'diet_plan_deleted', `Diet Plan #${plan.plan_number} deleted`);
     return true;
   }
 }
