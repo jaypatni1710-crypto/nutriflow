@@ -175,37 +175,51 @@ export default function DashboardHomePage() {
     }
   }, []);
 
+  const loadStats = async (silent = false) => {
+    try {
+      const [activeRes, recentRes, apptRes, plansRes] = await Promise.all([
+        clientApi.list({ status: 'active', limit: 1 }),
+        clientApi.list({ limit: 20 }),
+        appointmentApi.list(),
+        dietPlanApi.list(),
+      ]);
+      setActiveClientsCount(activeRes.total);
+      setRecentClients(recentRes.data);
+      setAppointments(apptRes.data);
+      setDietPlans(plansRes.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const [activeRes, recentRes, apptRes, plansRes] = await Promise.all([
-          clientApi.list({ status: 'active', limit: 1 }),
-          clientApi.list({ limit: 20 }),
-          appointmentApi.list(),
-          dietPlanApi.list(),
-        ]);
-        setActiveClientsCount(activeRes.total);
-        setRecentClients(recentRes.data);
-        setAppointments(apptRes.data);
-        setDietPlans(plansRes.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadStats();
+    // Refresh data every 60s so counts (diet plan sent, appointments) stay current
+    const dataTimer = setInterval(() => loadStats(true), 60000);
+    return () => clearInterval(dataTimer);
+  }, []);
+
+  // Ticks every 30s so "Appointments Today" re-evaluates against the current
+  // time and auto-drops appointments once their end time has passed.
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const clockTimer = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(clockTimer);
   }, []);
 
   const todayKey = todayDateKey();
+  const nowTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
   const appointmentsToday = useMemo(
-    () => appointments.filter((a) => a.appt_date === todayKey).length,
-    [appointments, todayKey]
+    () => appointments.filter((a) => a.appt_date === todayKey && a.time_to > nowTimeStr).length,
+    [appointments, todayKey, nowTimeStr]
   );
 
   const upcomingSessions = useMemo(
-    () => appointments.filter((a) => a.appt_date >= todayKey).length,
-    [appointments, todayKey]
+    () => appointments.filter((a) => a.appt_date > todayKey || (a.appt_date === todayKey && a.time_to > nowTimeStr)).length,
+    [appointments, todayKey, nowTimeStr]
   );
 
   const sentByClient = useMemo(() => computeSentByClient(appointments), [appointments]);
@@ -281,7 +295,7 @@ export default function DashboardHomePage() {
         <StatCard
           label="Appointments Today"
           value={loading ? '—' : String(appointmentsToday)}
-          hint={appointmentsToday === 0 ? 'Nothing scheduled today' : 'Scheduled for today'}
+          hint={appointmentsToday === 0 ? 'Nothing left today' : 'Remaining for today'}
         />
         <StatCard
           label="Upcoming Appointments"
