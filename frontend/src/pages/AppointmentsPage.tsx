@@ -302,9 +302,14 @@ export function AddAppointmentModal({
 
   // Lock background page scroll while this modal is open.
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prevOverflow; };
+    document.documentElement.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
   }, []);
 
   useEffect(() => {
@@ -350,6 +355,7 @@ export function AddAppointmentModal({
 
   const isValidTimeRange = timeFrom !== '' && timeTo !== '' && timeFrom < timeTo;
   const hasOverlap = !!overlappingAppt;
+  const isPastTime = apptDate === todayDateKey() && timeFrom !== '' && timeFrom < new Date().toTimeString().slice(0, 5);
 
   // Working-hours check: if working hours are configured, the appointment's
   // start and end time must both fall inside [workingStart, workingEnd].
@@ -382,14 +388,10 @@ export function AddAppointmentModal({
   const isTagValid = tag !== '' && (tag !== 'other' || tagOther.trim() !== '');
 
   const canSave =
-    clientId && apptDate && !isPastDate && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid && !isOverMaxPerDay;
+    clientId && apptDate && !isPastDate && !isPastTime && timeFrom && timeTo && isValidTimeRange && !hasOverlap && isWithinWorkingHours && isTagValid && !isOverMaxPerDay;
 
   const handleSave = () => {
-    if (!canSave) return;
-    if (apptDate === todayDateKey() && timeFrom < new Date().toTimeString().slice(0, 5)) {
-      alert('This time has already passed. Please pick a later time.');
-      return;
-    }
+    if (!canSave || isPastTime) return;
     onSave({
       clientId,
       clientName: clientQuery,
@@ -429,7 +431,7 @@ export function AddAppointmentModal({
                   onChange={(e) => { setClientQuery(e.target.value); setClientId(''); setShowDropdown(true); }}
                   onFocus={() => setShowDropdown(true)}
                   placeholder="Type client name..."
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-insetfocus:ring-2 focus:ring-teal-500"
                 />
                 {showDropdown && clients.length > 0 && (
                   <div className="absolute z-10 mt-1 w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -530,6 +532,11 @@ export function AddAppointmentModal({
             {hasOverlap && overlappingAppt && (
               <p className="mt-1 text-xs text-red-500">
                 This overlaps with {overlappingAppt.clientName}'s appointment ({overlappingAppt.timeFrom} – {overlappingAppt.timeTo}).
+              </p>
+            )}
+            {isPastTime && !hasOverlap && (
+              <p className="mt-1 text-xs text-red-500">
+                This time has already passed today. Please pick a later time.
               </p>
             )}
             {!isWithinWorkingHours && (
