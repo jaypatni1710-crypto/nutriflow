@@ -119,12 +119,15 @@ export default function DietPlanPage() {
   useEffect(load, []);
 
   const handleSaved = (plan: DietPlan, wasEdit: boolean) => {
-    setPlans((prev) => (wasEdit ? prev.map((p) => (p.id === plan.id ? plan : p)) : [plan, ...prev]));
+    setPlans((prev) =>
+      wasEdit
+        ? prev.map((p) => (p.id === plan.id ? plan : p))
+        : [plan, ...prev.map((p) => (p.client_id === plan.client_id ? { ...p, is_editable: false } : p))]
+    );
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
     setEditTarget(null);
   };
-
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
@@ -574,12 +577,15 @@ export function ClientDietPlanSection({ clientId, clientName, clientGoal }: { cl
   useEffect(load, [clientId]);
 
   const handleSaved = (plan: DietPlan, wasEdit: boolean) => {
-    setPlans((prev) => (wasEdit ? prev.map((p) => (p.id === plan.id ? plan : p)) : [plan, ...prev]));
+    setPlans((prev) =>
+      wasEdit
+        ? prev.map((p) => (p.id === plan.id ? plan : p))
+        : [plan, ...prev.map((p) => ({ ...p, is_editable: false }))]
+    );
     setToast(wasEdit ? 'Diet plan updated' : 'Diet plan created');
     setShowModal(false);
     setEditTarget(null);
   };
-
   const handleDelete = async () => {
     if (!deleteTarget) return;
     try {
