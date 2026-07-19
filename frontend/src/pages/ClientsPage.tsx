@@ -84,7 +84,7 @@ export default function ClientsPage() {
   const [condition, setCondition] = useState('');
   const [status, setStatus] = useState('');
   const [tag, setTag] = useState('');
-  const [allTags, setAllTags] = useState<string[]>([]);
+  const [, setAllTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
