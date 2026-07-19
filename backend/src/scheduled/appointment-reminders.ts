@@ -76,7 +76,9 @@ export async function runAppointmentReminderCheck(env: Env): Promise<void> {
   const targetTime = formatTimeKey(targetLocal);
 
   const candidates = await pushService.findReminderCandidates(targetDate, targetTime);
+  console.log(`[reminder-check] target=${targetDate} ${targetTime} havePush=${havePush} haveTelegram=${haveTelegramToken} candidates=${candidates.length}`);
   for (const appt of candidates) {
+    console.log(`[reminder-check] processing appt=${appt.id} dietitian=${appt.dietitian_id} chatId=${appt.telegram_chat_id}`);
     const title = `Reminder — ${appt.client_name}`;
     const body = `Starts in ${REMINDER_LEAD_MINUTES} minutes, ${formatTimeRange(appt.time_from, appt.time_to)}`;
 
