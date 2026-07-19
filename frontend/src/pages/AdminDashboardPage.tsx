@@ -335,10 +335,10 @@ function UserDetailModal({ user, onClose }: { user: User; onClose: () => void })
               {storageLoading
                 ? 'Loading…'
                 : storageError
-                ? 'Unable to load'
-                : !storage?.configured
-                ? 'Not configured'
-                : `${fmtBytes(storage.total_bytes)} (${storage.file_count} file${storage.file_count === 1 ? '' : 's'})`}
+                  ? 'Unable to load'
+                  : !storage?.configured
+                    ? 'Not configured'
+                    : `${fmtBytes(storage.total_bytes)} (${storage.file_count} file${storage.file_count === 1 ? '' : 's'})`}
             </span>
           </div>
 
@@ -725,7 +725,7 @@ export default function AdminDashboardPage() {
                 </svg>
               ) : (
                 <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.003A9.38 9.38 0 0112.375 21c-2.156 0-4.16-.584-5.892-1.594M18 10.5h.008v.008H18V10.5zm-3 .375h.008v.008H15V10.875zm-3 .375h.008v.008H12V11.25zm-3 .375h.008v.008H9V11.625zm-3 .375h.008v.008H6V12zm12-3.375h.008v.008H18V8.625zm-3 .375h.008v.008H15V9zm-3 .375h.008v.008H12V9.375zm-3 .375h.008v.008H9V9.75zM15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               )}
               {!sidebarCollapsed && <span className="truncate">{t.label}</span>}
@@ -895,7 +895,7 @@ export default function AdminDashboardPage() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
-                              <Th>Full Name</Th><Th>Email</Th>
+                              <Th>Full Name</Th>
                               <Th>Created Date</Th><Th>Status</Th>
                               <Th>Total Clients</Th><Th>Limit of Client</Th>
                               <Th>Temporary Access</Th><Th>Actions</Th>
@@ -908,7 +908,6 @@ export default function AdminDashboardPage() {
                                   <div className="font-semibold text-slate-900 dark:text-white">{user.first_name} {user.last_name}</div>
                                   <div className="text-xs text-slate-400 mt-0.5">{user.organization_name}</div>
                                 </td>
-                                <td className="px-5 py-4 text-slate-600 dark:text-slate-300">{user.email}</td>
                                 <td className="px-5 py-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                                   {new Date(user.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </td>

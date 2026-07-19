@@ -179,12 +179,6 @@ export default function ClientsPage() {
           <option value="">All Status</option>
           {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
         </select>
-        {allTags.length > 0 && (
-          <select value={tag} onChange={(e) => setTag(e.target.value)} className="px-3 py-2.5 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <option value="">All Tags</option>
-            {allTags.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-        )}
       </div>
 
       {error && <div className="mb-4 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-sm">{error}</div>}
@@ -203,7 +197,6 @@ export default function ClientsPage() {
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs font-semibold text-slate-500 dark:text-slate-400">
                   <th className="px-4 py-3">Full Name</th>
-                  <th className="px-4 py-3">Phone Number</th>
                   <th className="px-4 py-3">Age</th>
                   <th className="px-4 py-3">BMI Status</th>
                   <th className="px-4 py-3">Food Preference</th>
@@ -216,7 +209,6 @@ export default function ClientsPage() {
                 {clients.map((c) => (
                   <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40">
                     <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">{c.first_name} {c.last_name}</td>
-                    <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.phone_number}</td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{calcAge(c.date_of_birth)}</td>
                     <td className="px-4 py-3"><BmiStatusBadge category={c.bmi_category} /></td>
                     <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{c.diet_type || '—'}</td>
