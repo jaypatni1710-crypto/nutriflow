@@ -83,7 +83,7 @@ export default function ClientsPage() {
   const [goal, setGoal] = useState('');
   const [condition, setCondition] = useState('');
   const [status, setStatus] = useState('');
-  const [tag, setTag] = useState('');
+  const [tag] = useState('');
   const [, setAllTags] = useState<string[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
