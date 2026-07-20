@@ -151,6 +151,7 @@ export function createClientRouter(clientService: ClientService): Hono<{ Binding
     }
     return c.json({ success: true, message: 'Client deleted successfully' });
   } catch (err) {
+    console.error('deleteClient error:', err);
     return c.json({ success: false, message: 'Failed to delete client' }, 500);
   }
 });

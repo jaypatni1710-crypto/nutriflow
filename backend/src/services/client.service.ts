@@ -429,6 +429,8 @@ export class ClientService {
       );
       const filePaths: string[] = filesRes.rows.map((r: any) => r.file_path).filter(Boolean);
 
+      await client.query(`DELETE FROM diet_plans WHERE client_id = $1`, [clientId]);
+      await client.query(`DELETE FROM appointments WHERE client_id = $1`, [clientId]);
       await client.query(`DELETE FROM client_assessments WHERE client_id = $1`, [clientId]);
       await client.query(`DELETE FROM client_medical_history WHERE client_id = $1`, [clientId]);
       await client.query(`DELETE FROM client_notes WHERE client_id = $1`, [clientId]);

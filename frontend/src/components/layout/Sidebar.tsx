@@ -1,15 +1,22 @@
 import { NavLink } from 'react-router-dom';
 import { NAV_ITEMS } from './navConfig';
 import { NutriFlowLogoIcon } from '../Logo';
+import { Toast } from '../clients/Toast';
+import { useState } from 'react';
 
 interface SidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
   onCloseMobile: () => void;
   onToggleCollapse: () => void;
+  clientCount: number | null;
 }
 
-export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggleCollapse }: SidebarProps) {
+const LOCKED_PATHS = ['/dashboard/diet-plan', '/dashboard/appointments'];
+
+export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggleCollapse, clientCount }: SidebarProps) {
+  const [showLockedToast, setShowLockedToast] = useState(false);
+  const isLocked = clientCount === 0;
   return (
     <>
       <div onClick={onCloseMobile} aria-hidden="true"
@@ -48,8 +55,17 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggleCollapse
         <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto overflow-x-hidden">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
+            const itemLocked = isLocked && LOCKED_PATHS.includes(item.path);
             return (
-              <NavLink key={item.path} to={item.path} end={item.path === '/dashboard'} onClick={onCloseMobile}
+              <NavLink key={item.path} to={item.path} end={item.path === '/dashboard'}
+                onClick={(e) => {
+                  if (itemLocked) {
+                    e.preventDefault();
+                    setShowLockedToast(true);
+                    return;
+                  }
+                  onCloseMobile();
+                }}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors
@@ -64,6 +80,10 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile, onToggleCollapse
           })}
         </nav>
       </aside>
+
+      {showLockedToast && (
+        <Toast message="Add a client first to unlock this section" onClose={() => setShowLockedToast(false)} />
+      )}
     </>
   );
 }

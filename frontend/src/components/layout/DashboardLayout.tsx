@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { NAV_ITEMS } from './navConfig';
+import { clientApi } from '../../lib/client.api';
 
 const SIDEBAR_STORAGE_KEY = 'nutriflow:sidebar-collapsed';
 const MOBILE_BREAKPOINT = 768; // Tailwind's `md`
@@ -16,6 +17,11 @@ export function DashboardLayout({ children, pageTitle: pageTitleProp }: { childr
   const location = useLocation();
   const [collapsed, setCollapsed] = useState<boolean>(getInitialCollapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [clientCount, setClientCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    clientApi.list({ limit: 1 }).then((res) => setClientCount(res.total)).catch(() => setClientCount(null));
+  }, [location.pathname]);
 
   // Remember collapsed/expanded state across refreshes
   useEffect(() => {
@@ -39,7 +45,7 @@ export function DashboardLayout({ children, pageTitle: pageTitleProp }: { childr
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} onToggleCollapse={toggleSidebar} />
+      <Sidebar collapsed={collapsed} mobileOpen={mobileOpen} onCloseMobile={() => setMobileOpen(false)} onToggleCollapse={toggleSidebar} clientCount={clientCount} />
 
       <div
         className={`flex flex-col min-h-screen transition-all duration-300 ease-in-out ${

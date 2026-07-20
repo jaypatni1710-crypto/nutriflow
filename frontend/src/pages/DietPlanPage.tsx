@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { clientApi } from '../lib/client.api';
 import { dietPlanApi } from '../lib/diet-plan.api';
 import { ClientListItem } from '../types/client.types';
@@ -76,9 +77,16 @@ function formatDate(iso: string) {
 }
 
 export default function DietPlanPage() {
+  const navigate = useNavigate();
   const [plans, setPlans] = useState<DietPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
+
+  useEffect(() => {
+    clientApi.list({ limit: 1 }).then((res) => {
+      if (res.total === 0) navigate('/dashboard');
+    }).catch(() => {});
+  }, []);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<DietPlan | null>(null);
   const [viewTarget, setViewTarget] = useState<DietPlan | null>(null);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { clientApi } from '../lib/client.api';
 import { appointmentApi, ApiAppointment, ApiAppointmentSettings } from '../lib/appointment.api';
 import { ClientListItem } from '../types/client.types';
@@ -804,8 +805,15 @@ function DayAppointmentsModal({
 }
 
 export default function AppointmentsPage() {
+  const navigate = useNavigate();
   const today = new Date();
   const todayKey = todayDateKey();
+
+  useEffect(() => {
+    clientApi.list({ limit: 1 }).then((res) => {
+      if (res.total === 0) navigate('/dashboard');
+    }).catch(() => {});
+  }, []);
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState<AppointmentSettings>({
